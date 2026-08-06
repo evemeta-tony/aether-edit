@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/evemeta-tony/aether-edit/services/orchestrator/internal/engine"
 )
@@ -243,4 +244,17 @@ func containsPair(args []string, k, v string) bool {
 		}
 	}
 	return false
+}
+
+func TestTruncateRuneSafe(t *testing.T) {
+	if got := truncateRuneSafe("short", 300); got != "short" {
+		t.Errorf("under-cap string changed: %q", got)
+	}
+	// 299 ASCII bytes then a 3-byte rune straddling the 300-byte cap: the
+	// cut must back up to the rune start, not split it.
+	s := strings.Repeat("a", 299) + "€"
+	got := truncateRuneSafe(s, 300)
+	if len(got) != 299 || !utf8.ValidString(got) {
+		t.Errorf("rune split at cap: len=%d valid=%v", len(got), utf8.ValidString(got))
+	}
 }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/evemeta-tony/aether-edit/services/orchestrator/internal/engine"
 )
@@ -212,11 +213,21 @@ func firstNonEmptyTail(s string) string {
 	for i := len(lines) - 1; i >= 0; i-- {
 		l := strings.TrimSpace(lines[i])
 		if l != "" {
-			if len(l) > 300 {
-				l = l[:300]
-			}
-			return l
+			return truncateRuneSafe(l, 300)
 		}
 	}
 	return ""
+}
+
+// truncateRuneSafe caps s at max bytes without splitting a multibyte UTF-8
+// rune at the cut point (Argus PR#4 pass 2 finding N2).
+func truncateRuneSafe(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }

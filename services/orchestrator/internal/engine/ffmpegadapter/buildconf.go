@@ -60,8 +60,5 @@ func firstLine(b []byte) string {
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
 		s = s[:i]
 	}
-	if len(s) > 300 {
-		s = s[:300]
-	}
-	return s
+	return truncateRuneSafe(s, 300)
 }

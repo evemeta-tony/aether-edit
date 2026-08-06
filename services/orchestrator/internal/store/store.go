@@ -258,7 +258,11 @@ func (p *Postgres) ListJobs(ctx context.Context, workspaceID string, state *jobs
 		q += ` AND state = $2`
 		args = append(args, string(*state))
 	}
-	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d`, limit)
+	// LIMIT is a bound parameter, never string-formatted SQL, so a future
+	// user-supplied limit cannot become an injection surface (Argus PR#4
+	// pass 2 finding N3).
+	args = append(args, limit)
+	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d`, len(args))
 	rows, err := p.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
