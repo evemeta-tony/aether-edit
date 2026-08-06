@@ -1,0 +1,15 @@
+# services/contracts/testdata/quota.yaml
+denyUnknownWorkspaces: false
+defaults:
+  maxUploadBytes: 1073741824
+  allowUploads: true
+  allowJobs: true
+workspaces:
+  ws-small:
+    maxUploadBytes: 1024
+  ws-nouploads:
+    allowUploads: false
+  ws-nojobs:
+    allowJobs: false
+  ws-zero:
+    maxUploadBytes: 0
