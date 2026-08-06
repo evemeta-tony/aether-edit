@@ -1,0 +1,75 @@
+/* packages/console/src/styles/base.css */
+
+/*
+ * The design tokens (colors, type scale, radii, spacing, motion) are the
+ * source of record and are imported verbatim from the design tree rather than
+ * duplicated here, so the console can never drift from the token file. The
+ * global resets below mirror the prototype's File_transcoder.html head styles.
+ */
+@import "../../../../docs/design/colors_and_type.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+#root {
+  position: fixed;
+  inset: 0;
+}
+
+a {
+  color: var(--blue-400);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--blue-300);
+}
+
+button.ae-b {
+  font-family: var(--font-sans);
+  transition: background var(--dur) var(--ease-std),
+    border-color var(--dur) var(--ease-std), color var(--dur) var(--ease-std);
+}
+button.ae-b:hover {
+  filter: brightness(1.14);
+}
+button.ae-b:focus-visible {
+  outline: 2px solid var(--blue-400);
+  outline-offset: 2px;
+}
+
+@keyframes ae-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #252b34;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+  }
+}

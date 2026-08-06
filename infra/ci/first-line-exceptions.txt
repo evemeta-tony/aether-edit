@@ -3,3 +3,6 @@
 # filename first-line check. Reserved for third-party trees carried verbatim;
 # first-party code is never exempt.
 docs/design/ui_kits/**
+# Design source of record carried verbatim: colors_and_type.css opens with an
+# upstream @import line, not a path comment. Same verbatim class as ui_kits.
+docs/design/colors_and_type.css

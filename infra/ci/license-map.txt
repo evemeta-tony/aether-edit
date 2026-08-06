@@ -8,3 +8,39 @@ github.com/nats-io/nats.go Apache-2.0
 github.com/jackc/pgx MIT
 github.com/google/uuid BSD-3-Clause
 golang.org/x BSD-3-Clause
+# Pre-existing Go dependency gap: the go.mod files under services/ reference
+# these modules but the map only carried four prefixes, so check-licenses.sh
+# was already red on main for all of them (independent of FT-5). Backfilled
+# here with SPDX ids verified from each module's own LICENSE file in the local
+# Go module cache, so the repo CI gate (bash infra/ci/check-all.sh) goes green.
+# The in-repo services/contracts module is first-party (the repo's own code).
+github.com/evemeta-tony/aether-edit MIT
+github.com/NVIDIA/go-nvml Apache-2.0
+github.com/klauspost/compress BSD-3-Clause
+github.com/nats-io/nkeys Apache-2.0
+github.com/nats-io/nuid Apache-2.0
+gopkg.in/yaml.v3 MIT
+github.com/golang-jwt/jwt MIT
+github.com/jackc/pgpassfile MIT
+github.com/jackc/pgservicefile MIT
+github.com/jackc/puddle MIT
+github.com/kr/text MIT
+github.com/rogpeppe/go-internal BSD-3-Clause
+github.com/aws Apache-2.0
+github.com/stretchr/testify MIT
+# FT-5 console (packages/console) direct dependencies. SPDX ids verified
+# against each package's own package.json "license" field in node_modules.
+lucide-react ISC
+react MIT
+react-dom MIT
+@types/react MIT
+@types/react-dom MIT
+@types/node MIT
+@typescript-eslint/eslint-plugin MIT
+@typescript-eslint/parser BSD-2-Clause
+@vitejs/plugin-react MIT
+eslint MIT
+eslint-plugin-react-hooks MIT
+eslint-plugin-react-refresh MIT
+typescript Apache-2.0
+vite MIT
