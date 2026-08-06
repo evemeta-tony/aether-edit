@@ -263,6 +263,12 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 	}
 
 	total := float64(len(preset.Ladder))
+	// lastPersist and outputs are written by onProgress without a lock. That
+	// is safe today because the ffmpeg adapter calls onProgress synchronously
+	// from ScanProgress on the Transcode goroutine and rungs run
+	// sequentially. Any future engine adapter that emits progress from its
+	// own goroutine must add synchronization here first (Argus PR#4
+	// finding 6 follow-up).
 	var lastPersist time.Time
 	for i, rung := range preset.Ladder {
 		if ctx.Err() != nil {

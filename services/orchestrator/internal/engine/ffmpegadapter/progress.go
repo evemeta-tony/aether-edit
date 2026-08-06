@@ -25,6 +25,9 @@ type ProgressSample struct {
 type ProgressParser struct {
 	cur      ProgressSample
 	haveData bool
+	// haveUS records that out_time_us was seen in the current block so a
+	// later out_time_ms line cannot overwrite the authoritative value.
+	haveUS bool
 }
 
 // Feed consumes one line. It returns a completed sample and true when the
@@ -48,14 +51,23 @@ func (p *ProgressParser) Feed(line string) (ProgressSample, bool) {
 			p.haveData = true
 		}
 	case "out_time_us":
+		// out_time_us is the authoritative microsecond field; haveUS marks
+		// it so a later out_time_ms line in the same block is ignored.
 		if n, err := strconv.ParseInt(val, 10, 64); err == nil && n >= 0 {
 			p.cur.OutTimeSeconds = float64(n) / 1e6
 			p.haveData = true
+			p.haveUS = true
 		}
 	case "out_time_ms":
-		// ffmpeg emits out_time_ms in microseconds as well (long-standing
-		// upstream quirk); out_time_us wins when both are present because it
-		// is processed per-block in stream order and carries the same value.
+		// Mainline ffmpeg emits out_time_ms in microseconds (long-standing
+		// upstream quirk), but the unit varies across builds. out_time_us is
+		// authoritative and wins whenever both keys appear in a block; the
+		// microsecond interpretation below is only a fallback for builds that
+		// omit out_time_us. The unit assumption for the AM-5 ffmpeg build
+		// must be verified at OVH box bring-up (Argus PR#4 finding 4).
+		if p.haveUS {
+			break
+		}
 		if n, err := strconv.ParseInt(val, 10, 64); err == nil && n >= 0 {
 			p.cur.OutTimeSeconds = float64(n) / 1e6
 			p.haveData = true
@@ -72,6 +84,7 @@ func (p *ProgressParser) Feed(line string) (ProgressSample, bool) {
 		p.cur = ProgressSample{}
 		done := p.haveData || s.End
 		p.haveData = false
+		p.haveUS = false
 		return s, done
 	}
 	return ProgressSample{}, false

@@ -54,6 +54,30 @@ func TestFeedIgnoresMalformedLines(t *testing.T) {
 	}
 }
 
+func TestOutTimeUSWinsOverOutTimeMS(t *testing.T) {
+	// out_time_us is authoritative. Feed divergent values in both orders and
+	// require the us value to win; out_time_ms alone is a microsecond
+	// fallback (unit to be verified against the AM-5 ffmpeg build).
+	var p ProgressParser
+	p.Feed("out_time_us=2000000")
+	p.Feed("out_time_ms=9000000")
+	s, done := p.Feed("progress=continue")
+	if !done || s.OutTimeSeconds != 2.0 {
+		t.Errorf("us then ms: out_time = %f, want 2.0", s.OutTimeSeconds)
+	}
+	p.Feed("out_time_ms=9000000")
+	p.Feed("out_time_us=2000000")
+	s, done = p.Feed("progress=continue")
+	if !done || s.OutTimeSeconds != 2.0 {
+		t.Errorf("ms then us: out_time = %f, want 2.0", s.OutTimeSeconds)
+	}
+	p.Feed("out_time_ms=3000000")
+	s, done = p.Feed("progress=continue")
+	if !done || s.OutTimeSeconds != 3.0 {
+		t.Errorf("ms only fallback: out_time = %f, want 3.0", s.OutTimeSeconds)
+	}
+}
+
 func TestDeriveProgress(t *testing.T) {
 	pct, eta := DeriveProgress(ProgressSample{OutTimeSeconds: 15, SpeedX: 3}, 30)
 	if pct != 50 {

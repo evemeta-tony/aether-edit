@@ -69,6 +69,15 @@ func TestPresetValidateRejects(t *testing.T) {
 		{"odd dimensions", func(p *Preset) { p.Ladder[0].Width = 1921 }, "even"},
 		{"duplicate rung names", func(p *Preset) { p.Ladder[1].Name = "1080p" }, "unique"},
 		{"empty name", func(p *Preset) { p.Name = "" }, "name"},
+		{"empty rung name", func(p *Preset) { p.Ladder[0].Name = "" }, "ladder[0].name"},
+		{"rung name with slash", func(p *Preset) { p.Ladder[0].Name = "a/b" }, "ladder[0].name"},
+		{"rung name traversal", func(p *Preset) { p.Ladder[0].Name = "../../etc/x" }, "ladder[0].name"},
+		{"rung name dot-dot", func(p *Preset) { p.Ladder[0].Name = ".." }, "ladder[0].name"},
+		{"rung name leading dot", func(p *Preset) { p.Ladder[0].Name = ".hidden" }, "ladder[0].name"},
+		{"rung name with space", func(p *Preset) { p.Ladder[0].Name = "10 80p" }, "ladder[0].name"},
+		{"rung name with dollar", func(p *Preset) { p.Ladder[0].Name = "r$1" }, "ladder[0].name"},
+		{"rung name control char", func(p *Preset) { p.Ladder[0].Name = "a\x00b" }, "ladder[0].name"},
+		{"rung name too long", func(p *Preset) { p.Ladder[0].Name = strings.Repeat("a", 33) }, "ladder[0].name"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -21,7 +21,7 @@ func TestKeyValidation(t *testing.T) {
 			t.Errorf("key %q accepted", bad)
 		}
 	}
-	p, err := s.Path("assets/ws1/sha256/" + string(make([]byte, 0)) + "abcdef")
+	p, err := s.Path("assets/ws1/sha256/abcdef")
 	if err != nil {
 		t.Fatalf("good key rejected: %v", err)
 	}

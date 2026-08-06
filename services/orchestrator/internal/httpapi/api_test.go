@@ -280,6 +280,16 @@ func TestAuthRequired(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("bad token: status %d, want 401", resp.StatusCode)
 	}
+	// Tokens without exp are unbounded-lifetime and must be rejected.
+	noExp := jwt.MapClaims{"sub": "user-7", "workspaceId": testWS}
+	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, noExp).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, _ = f.do(t, "GET", "/v1/jobs", s, "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("token without exp: status %d, want 401", resp.StatusCode)
+	}
 }
 
 func TestCreateJobHappyPath(t *testing.T) {
@@ -369,6 +379,24 @@ func TestRetrySemantics(t *testing.T) {
 	resp, _ = f.do(t, "POST", "/v1/jobs/"+strings.Replace(jobID, "3333", "9999", 1)+"/retry", tok, "")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("retry unknown job: status %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestRetryDeniedByQuota(t *testing.T) {
+	// Retry runs the same admission gate as create; a workspace at its
+	// active-job cap must not re-admit failed jobs past the cap.
+	f := newFixture(t, fakeQuota{allow: false, reason: "active job limit reached"})
+	tok := token(t, testWS)
+	f.store.jobsMap[jobID] = jobs.Job{ID: jobID, WorkspaceID: testWS, State: jobs.StateFailed}
+	resp, _ := f.do(t, "POST", "/v1/jobs/"+jobID+"/retry", tok, "")
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("quota-denied retry: status %d, want 429", resp.StatusCode)
+	}
+	if got := f.store.jobsMap[jobID].State; got != jobs.StateFailed {
+		t.Errorf("denied retry must leave job failed, got %s", got)
+	}
+	if len(f.meter.kinds) != 0 {
+		t.Error("denied retry must not emit job_queued")
 	}
 }
 

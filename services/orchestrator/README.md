@@ -75,13 +75,17 @@ data are rejected with 400 and never coerced.
   quota hook; denial is 429 with the reason. Success is 201 with the queued
   job and emits a `job_queued` metering event.
 - `POST /v1/jobs/{id}/retry` retries a FAILED job only (returns it to
-  queued, clearing error state); any other state is 409.
+  queued, clearing error state); any other state is 409. Retry runs the
+  same quota admission gate as create (a workspace at its active-job cap
+  cannot re-admit failed jobs past the cap; denial is 429).
 - `DELETE /v1/jobs/{id}` cancels. Queued jobs transition directly to failed
   with error class `internal` and message `canceled by user` (the state set
   is frozen to four states, so cancel resolves to failed; 200 with the final
   job). Running jobs get the cancel delivered to the in-process scheduler
-  (202; the runner finalizes the same terminal shape). Completed and failed
-  jobs return 409.
+  (202; the runner finalizes the same terminal shape). 202 means "cancel
+  delivered", not a guaranteed failed outcome: if the encode finishes in
+  the race window the job lands completed; re-fetch the job for its
+  terminal state. Completed and failed jobs return 409.
 
 Job lifecycle: `queued -> running -> completed | failed`, plus
 `failed -> queued` via retry. Nothing else.
@@ -95,7 +99,10 @@ Job lifecycle: `queued -> running -> completed | failed`, plus
   the matching value field (`crf` 0..51 for crf; `bitrateKbps` and optional
   `maxBitrateKbps` for vbr; `bitrateKbps` for cbr), `gopLength` (frames,
   1..600), `speedPreset` (`p1`..`p7`), and `ladder` (1..8 rungs of
-  `{name, width, height}`, even dimensions).
+  `{name, width, height}`, even dimensions). Rung names are 1..32
+  characters, start with a letter or digit, and contain only letters,
+  digits, dot, underscore, hyphen: they flow into output file paths and
+  object keys, so the character set is locked down at validation.
 - `PATCH /v1/presets/{id}` updates provided fields; cross-field constraints
   are validated on the merged result, so a rate control mode change must
   arrive with consistent value fields or the whole patch is rejected.

@@ -8,8 +8,17 @@ package jobs
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 )
+
+// rungNamePattern restricts rung names to a filesystem- and object-key-safe
+// character set. Rung names flow into ffmpeg output argv, staging file paths
+// and object-store key prefixes, so they must start with an alphanumeric
+// (which also excludes "." and "..") and contain only [A-Za-z0-9._-]. The
+// object store validates keys again on the way out; this gate runs first so
+// a hostile name never reaches the filesystem (Argus PR#4 finding 11).
+var rungNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$`)
 
 // Container is the output container format.
 type Container string
@@ -163,8 +172,8 @@ func (p *Preset) Validate() error {
 	}
 	seen := map[string]bool{}
 	for i, r := range p.Ladder {
-		if r.Name == "" || len(r.Name) > 32 {
-			return fmt.Errorf("ladder[%d].name must be 1..32 characters", i)
+		if !rungNamePattern.MatchString(r.Name) {
+			return fmt.Errorf("ladder[%d].name must be 1..32 characters, start with a letter or digit, and contain only letters, digits, dot, underscore, hyphen", i)
 		}
 		if seen[r.Name] {
 			return fmt.Errorf("ladder rung names must be unique: %q", r.Name)

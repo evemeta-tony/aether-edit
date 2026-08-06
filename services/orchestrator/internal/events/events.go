@@ -80,16 +80,18 @@ func ParseUploadLanded(data []byte) (UploadLanded, error) {
 	return e, nil
 }
 
-// MeteringKind enumerates contract 2 kinds.
+// MeteringKind enumerates the contract 2 kinds FT-3 emits. FT-2's upload
+// kinds (upload_session_created, upload_completed) are deliberately not
+// defined here: this service must never emit them, and duplicating another
+// lane's kinds locally invites contract drift. The full kind set lives with
+// the frozen contract (Argus PR#4 finding 19).
 type MeteringKind string
 
 const (
-	MeterUploadSessionCreated MeteringKind = "upload_session_created"
-	MeterUploadCompleted      MeteringKind = "upload_completed"
-	MeterJobQueued            MeteringKind = "job_queued"
-	MeterJobStarted           MeteringKind = "job_started"
-	MeterJobCompleted         MeteringKind = "job_completed"
-	MeterJobFailed            MeteringKind = "job_failed"
+	MeterJobQueued    MeteringKind = "job_queued"
+	MeterJobStarted   MeteringKind = "job_started"
+	MeterJobCompleted MeteringKind = "job_completed"
+	MeterJobFailed    MeteringKind = "job_failed"
 )
 
 // Metering is the contract 2 payload.

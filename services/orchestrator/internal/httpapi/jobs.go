@@ -159,6 +159,19 @@ func (a *API) retryJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "job id must be a uuid")
 		return
 	}
+	// Retry re-admits a job into the queued+running set, so it runs the same
+	// quota admission gate as create; otherwise a workspace at its active-job
+	// cap could re-admit failed jobs past the cap (Argus PR#4 finding 8).
+	decision, err := a.quota.CheckJobAdmission(r.Context(), id.WorkspaceID)
+	if err != nil {
+		a.log.Error("quota admission on retry", "err", err)
+		writeError(w, http.StatusInternalServerError, "quota check failed")
+		return
+	}
+	if !decision.Allowed {
+		writeError(w, http.StatusTooManyRequests, decision.Reason)
+		return
+	}
 	j, err := a.store.RetryJob(r.Context(), id.WorkspaceID, jobID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "job not found")
@@ -206,6 +219,11 @@ func (a *API) cancelJob(w http.ResponseWriter, r *http.Request) {
 	case jobs.StateRunning:
 		// Farm-of-one: the running job lives in this process; deliver the
 		// cancel to the scheduler and let the runner finalize the row.
+		// 202 means "cancel delivered", not "job will end failed": if the
+		// encode finishes in the window between this read and the cancel
+		// reaching the runner, the terminal state is completed. The DB
+		// transition guards make an illegal completed -> failed flip
+		// impossible; callers re-fetch for the terminal state.
 		if a.runner != nil && a.runner.Cancel(j.ID) {
 			writeJSON(w, http.StatusAccepted, map[string]string{"status": "cancel requested"})
 			return

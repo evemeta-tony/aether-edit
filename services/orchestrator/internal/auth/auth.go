@@ -57,7 +57,10 @@ func (v *Verifier) Verify(token string) (Identity, error) {
 			return nil, fmt.Errorf("unexpected signing method %s", t.Method.Alg())
 		}
 		return v.secret, nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		// Tokens must carry exp; without this option golang-jwt v5 accepts
+		// unbounded-lifetime tokens (Argus PR#4 finding 13).
+		jwt.WithExpirationRequired())
 	if err != nil {
 		return Identity{}, err
 	}
