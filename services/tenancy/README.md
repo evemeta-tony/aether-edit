@@ -50,6 +50,22 @@ shown exactly once at creation. The auth middleware accepts either a
 bearer JWT or an API key (`Authorization: Bearer aek_...` or
 `X-API-Key`). Revocation is immediate.
 
+## Revocation semantics (stated exactly)
+
+- API keys: revocation is immediate. The middleware and the exchange
+  endpoint consult the store on every request.
+- Refresh tokens: revocation is immediate and server-side (family
+  revocation on logout or on rotation reuse).
+- Access tokens are stateless JWTs and are NOT revocable before
+  expiry. A member removed from a workspace, or a user who switched
+  workspaces, holds any previously minted token as valid until its
+  TTL (default 15 minutes) against services that only verify the
+  claims contract (FT-2, FT-3, FT-4). Tenancy's own workspace
+  endpoints re-check membership on each call and cut off sooner. The
+  short TTL is the accepted bound for this posture; per-request
+  membership callbacks or a token denylist would trade latency on
+  every FT-2/FT-3 request and are not part of FT-6a.
+
 Quota (frozen contract 3): `MeteredQuota` implements
 `contracts.QuotaChecker` against the plan tier config plus the
 metering rollups, with the typed reasons from ConfigQuota kept stable

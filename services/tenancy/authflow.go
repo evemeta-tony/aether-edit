@@ -3,9 +3,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -205,17 +208,44 @@ type refreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+// readOptionalJSONBody reads a bounded request body. If the body is
+// empty it returns (false, true) so the caller can fall back to
+// another source; if it carries data it strictly decodes into v. It
+// handles chunked requests (ContentLength -1) by reading, not by
+// header inspection. On a malformed body it writes the error response
+// and returns ok=false.
+func readOptionalJSONBody(w http.ResponseWriter, r *http.Request, v any) (present, ok bool) {
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body unreadable or too large")
+		return false, false
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return false, true
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must be valid JSON with known fields only")
+		return true, false
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid_body", "request body must contain a single JSON object")
+		return true, false
+	}
+	return true, true
+}
+
 // takeRefreshToken pulls the raw refresh token from the JSON body or,
 // failing that, the auth cookie.
 func (s *Server) takeRefreshToken(w http.ResponseWriter, r *http.Request) (string, bool) {
-	if r.Header.Get("Content-Type") != "" && r.ContentLength != 0 {
-		var req refreshRequest
-		if !decodeJSONBody(w, r, &req) {
-			return "", false
-		}
-		if req.RefreshToken != "" {
-			return req.RefreshToken, true
-		}
+	var req refreshRequest
+	present, ok := readOptionalJSONBody(w, r, &req)
+	if !ok {
+		return "", false
+	}
+	if present && req.RefreshToken != "" {
+		return req.RefreshToken, true
 	}
 	if c, err := r.Cookie(refreshCookieName); err == nil && c.Value != "" {
 		return c.Value, true
@@ -309,9 +339,9 @@ type apiKeyTokenRequest struct {
 // middlewares verify the shared HS256 claims contract.
 func (s *Server) handleAPIKeyToken(w http.ResponseWriter, r *http.Request) {
 	raw := r.Header.Get("X-API-Key")
-	if raw == "" && r.ContentLength != 0 {
+	if raw == "" {
 		var req apiKeyTokenRequest
-		if !decodeJSONBody(w, r, &req) {
+		if _, ok := readOptionalJSONBody(w, r, &req); !ok {
 			return
 		}
 		raw = req.APIKey

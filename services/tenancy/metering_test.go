@@ -4,7 +4,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"testing"
@@ -197,6 +199,83 @@ func TestUsageEndpoint(t *testing.T) {
 	}
 	if u.JobsQueued != 1 || u.JobsCompleted != 1 {
 		t.Fatalf("jobs %d/%d", u.JobsQueued, u.JobsCompleted)
+	}
+}
+
+// TestProducerConformance certifies the consumer against the actual
+// producer encoding: FT-2 and FT-3 publish by json.Marshal of the
+// shared contracts.MeteringEvent struct (see services/upload/server.go
+// publishJSON on the FT-2 branch), so marshaling that struct here IS
+// the producer's byte encoding. Every frozen kind constant round-trips
+// through the consumer, and the recorded fixtures decode strictly into
+// the contract struct with no unknown or missing-name fields.
+func TestProducerConformance(t *testing.T) {
+	store := newMemStore()
+	kinds := []contracts.MeteringKind{
+		contracts.MeteringUploadSessionCreated,
+		contracts.MeteringUploadCompleted,
+		contracts.MeteringJobQueued,
+		contracts.MeteringJobStarted,
+		contracts.MeteringJobCompleted,
+		contracts.MeteringJobFailed,
+	}
+	for i, kind := range kinds {
+		ev := contracts.MeteringEvent{
+			EventID:     "conf-" + string(kind),
+			WorkspaceID: "ws-conf",
+			UserID:      "u",
+			Kind:        kind,
+			At:          time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC),
+		}
+		switch kind {
+		case contracts.MeteringUploadSessionCreated, contracts.MeteringUploadCompleted:
+			ev.Bytes = i64(1000)
+		case contracts.MeteringJobCompleted, contracts.MeteringJobFailed:
+			ev.EncodeSeconds = f64(30)
+			ev.JobID = "j"
+		}
+		payload, err := json.Marshal(ev) // exactly what FT-2/FT-3 publish
+		if err != nil {
+			t.Fatalf("kind %d marshal: %v", i, err)
+		}
+		applied, err := consumeMeteringPayload(context.Background(), store, payload)
+		if err != nil || !applied {
+			t.Fatalf("kind %q: applied=%v err=%v", kind, applied, err)
+		}
+	}
+	r, err := store.GetRollup(context.Background(), "ws-conf", "2026-08")
+	if err != nil {
+		t.Fatalf("rollup: %v", err)
+	}
+	if r.UploadSessions != 1 || r.UploadsCompleted != 1 || r.JobsQueued != 1 ||
+		r.JobsStarted != 1 || r.JobsCompleted != 1 || r.JobsFailed != 1 ||
+		r.BytesUploaded != 1000 || r.EncodeSeconds != 60 {
+		t.Fatalf("conformance rollup %+v", r)
+	}
+
+	// Fixtures carry only contract field names: strict decode with
+	// unknown fields disallowed must accept every line.
+	f, err := os.Open("testdata/metering_events.jsonl")
+	if err != nil {
+		t.Fatalf("open fixtures: %v", err)
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	line := 0
+	for sc.Scan() {
+		line++
+		if len(sc.Bytes()) == 0 {
+			continue
+		}
+		dec := json.NewDecoder(bytes.NewReader(sc.Bytes()))
+		dec.DisallowUnknownFields()
+		var ev contracts.MeteringEvent
+		if err := dec.Decode(&ev); err != nil {
+			t.Fatalf("fixture line %d carries non-contract fields: %v", line, err)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("scan: %v", err)
 	}
 }
 

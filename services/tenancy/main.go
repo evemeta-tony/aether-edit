@@ -24,12 +24,10 @@ import (
 )
 
 // newUserID mints a uuidv7 user id (time-ordered, index friendly).
+// uuid.NewV7 only fails if the system entropy source fails, which is
+// not a condition to paper over with a fallback; Must panics loudly.
 func newUserID() string {
-	u, err := uuid.NewV7()
-	if err != nil {
-		return uuid.NewString()
-	}
-	return u.String()
+	return uuid.Must(uuid.NewV7()).String()
 }
 
 func main() {

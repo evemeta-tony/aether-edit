@@ -99,6 +99,24 @@ type MeteringConsumer struct {
 	cc    jetstream.ConsumeContext
 }
 
+// ftStreamConfig is the shared frozen stream shape. It is
+// byte-identical to the config FT-2's publisher ensures
+// (services/upload/publisher.go on the FT-2 branch: name AETHER_FT,
+// the two frozen v1 subjects, file storage), so whichever service
+// starts first on the box creates the same stream and the other
+// attaches; neither ever modifies an existing stream.
+func ftStreamConfig() jetstream.StreamConfig {
+	return jetstream.StreamConfig{
+		Name:     ftStreamName,
+		Subjects: []string{contracts.SubjectUploadLanded, contracts.SubjectMetering},
+		Storage:  jetstream.FileStorage,
+	}
+}
+
+// meteringNakDelay spaces redeliveries of events that failed on a
+// transient store error.
+const meteringNakDelay = 5 * time.Second
+
 // NewMeteringConsumer connects to NATS, ensures the stream exists (only
 // creating it when absent), and starts a durable consumer on the
 // metering subject.
@@ -118,21 +136,20 @@ func NewMeteringConsumer(ctx context.Context, natsURL string, store Store, log *
 	}
 	stream, err := js.Stream(ctx, ftStreamName)
 	if errors.Is(err, jetstream.ErrStreamNotFound) {
-		stream, err = js.CreateStream(ctx, jetstream.StreamConfig{
-			Name:     ftStreamName,
-			Subjects: []string{contracts.SubjectUploadLanded, contracts.SubjectMetering},
-			Storage:  jetstream.FileStorage,
-		})
+		stream, err = js.CreateStream(ctx, ftStreamConfig())
 	}
 	if err != nil {
 		nc.Close()
 		return nil, fmt.Errorf("ensure stream %s: %w", ftStreamName, err)
 	}
+	// MaxDeliver is deliberately unlimited: metering is the quota and
+	// billing substrate, so an event that fails on a transient store
+	// error redelivers (spaced by meteringNakDelay) until it applies.
+	// Only payloads that can never parse are terminated.
 	cons, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Durable:       meteringConsumerName,
 		FilterSubject: contracts.SubjectMetering,
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    10,
 	})
 	if err != nil {
 		nc.Close()
@@ -151,8 +168,9 @@ func NewMeteringConsumer(ctx context.Context, natsURL string, store Store, log *
 }
 
 // handle processes one delivery. Malformed payloads are terminated
-// (they will never parse on redelivery); store failures are NAKed for
-// redelivery.
+// (they will never parse on redelivery); store failures are NAKed
+// with a delay and redeliver without a cap, so transient outages
+// never silently drop a metering event.
 func (m *MeteringConsumer) handle(msg jetstream.Msg) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -166,8 +184,8 @@ func (m *MeteringConsumer) handle(msg jetstream.Msg) {
 			_ = msg.Term()
 			return
 		}
-		m.log.Warn("metering apply failed; redelivering", "err", err)
-		_ = msg.Nak()
+		m.log.Warn("metering apply failed; redelivering", "err", err, "nakDelay", meteringNakDelay.String())
+		_ = msg.NakWithDelay(meteringNakDelay)
 		return
 	}
 	if !applied {
