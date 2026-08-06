@@ -1,0 +1,15 @@
+{
+    "defaults": {
+        "maxActiveJobs": 3,
+        "maxUploadBytes": 5368709120
+    },
+    "workspaces": {
+        "ws-premium": {
+            "maxActiveJobs": 10,
+            "maxUploadBytes": -1
+        },
+        "ws-frozen": {
+            "maxActiveJobs": -1
+        }
+    }
+}
