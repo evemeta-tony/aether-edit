@@ -196,7 +196,7 @@ func (a *Aggregator) jobEventLocked(jobID, state string) contracts.JobStreamEven
 	if js, ok := a.active[jobID]; ok {
 		out.FPS = js.fps
 		out.SpeedX = js.speedX
-		out.EtaSeconds = js.etaSeconds
+		out.ETASeconds = js.etaSeconds
 		out.ProgressPct = js.progressPct
 	} else if state == StateCompleted {
 		out.ProgressPct = 100

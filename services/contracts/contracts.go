@@ -83,13 +83,16 @@ type QuotaChecker interface {
 // HardwareSample is contract 4: one event on GET /v1/streams/hardware
 // (SSE, 1 Hz) from the telemetry service (FT4).
 type HardwareSample struct {
-	GPUUtilPct      float64 `json:"gpuUtilPct"`
-	VRAMUsedMB      float64 `json:"vramUsedMB"`
-	VRAMTotalMB     float64 `json:"vramTotalMB"`
-	JunctionC       float64 `json:"junctionC"`
-	PowerW          float64 `json:"powerW"`
-	EncoderSessions int     `json:"encoderSessions"`
-	CPUUtilPct      float64 `json:"cpuUtilPct"`
+	// Fields are nullable pointers with omitempty so an absent GPU
+	// serializes as null (not a fabricated zero), which the console
+	// renders as an em-dash per the honest-absence requirement (R12).
+	GPUUtilPct      *float64 `json:"gpuUtilPct,omitempty"`
+	VRAMUsedMB      *float64 `json:"vramUsedMB,omitempty"`
+	VRAMTotalMB     *float64 `json:"vramTotalMB,omitempty"`
+	JunctionC       *float64 `json:"junctionC,omitempty"`
+	PowerW          *float64 `json:"powerW,omitempty"`
+	EncoderSessions *int64   `json:"encoderSessions,omitempty"`
+	CPUUtilPct      *float64 `json:"cpuUtilPct,omitempty"`
 }
 
 // JobStreamEvent is contract 4: one event on GET /v1/streams/jobs
