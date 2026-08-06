@@ -1,0 +1,191 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+/* ============================================================
+   AETHER — Color & Type Foundations  (v2, brand-accurate)
+   Professional live video transmission: hardware, cloud, edit.
+   Near-black technical grounds, electric blue signal accent,
+   thin-line iconography, quiet uppercase eyebrow labels.
+   Sampled from the Aether marketing site (see README → Sources).
+   ============================================================ */
+
+:root {
+  /* ---------- SIGNAL BLUE — the brand accent ---------- */
+  --blue-700: #1B4DD1;
+  --blue-600: #2359E8;
+  --blue-500: #2F6BF6;   /* PRIMARY — buttons, links, active state */
+  --blue-400: #4F86F7;   /* hover / brighter fill */
+  --blue-300: #7FA8FA;
+  --blue-glow: #1C5BFE;  /* saturated core used in glows + diagrams */
+  --blue-tint: rgba(47,107,246,0.14);
+  --blue-line: rgba(47,107,246,0.38);
+
+  /* ---------- GROUNDS — technical near-blacks ---------- */
+  --bg-void:   #030506;  /* deepest, behind imagery */
+  --bg-base:   #0A0D11;  /* page background */
+  --bg-panel:  #0F1318;  /* section panel */
+  --bg-raised: #15181E;  /* card / raised surface */
+  --bg-input:  #1A1E25;  /* field, well, inset */
+  --bg-hover:  #21262F;
+
+  /* ---------- LINES ---------- */
+  --line:        rgba(255,255,255,0.08);  /* default hairline */
+  --line-strong: rgba(255,255,255,0.16);
+  --line-blue:   var(--blue-line);
+
+  /* ---------- TEXT ---------- */
+  --fg1: #FFFFFF;                  /* headlines, primary */
+  --fg2: rgba(255,255,255,0.68);   /* body copy */
+  --fg3: rgba(255,255,255,0.44);   /* meta, captions */
+  --fg4: rgba(255,255,255,0.26);   /* disabled */
+  --fg-on-blue: #FFFFFF;
+  --fg-on-light: #0A0D11;
+
+  /* ---------- STATUS ---------- */
+  --onair:   #E5334E;   /* LIVE / recording — broadcast red */
+  --ok:      #22C55E;   /* online, healthy */
+  --warn:    #F5A524;   /* warnings */
+  --err:     #EF4444;   /* errors */
+  --idle:    #64748B;   /* offline / neutral */
+
+  /* ---------- DATA-VIZ / DIAGRAM (network bonding graphics) ---------- */
+  --viz-1: #2F6BF6;  --viz-2: #4F86F7;  --viz-3: #22D3EE;
+  --viz-4: #A78BFA;  --viz-5: #22C55E;  --viz-6: #F5A524;
+
+  /* ---------- GLOWS & GRADIENTS ---------- */
+  --glow-blue:  0 0 40px rgba(28,91,254,0.45);
+  --glow-tight: 0 0 16px rgba(47,107,246,0.55);
+  --grad-signal: radial-gradient(circle at 50% 50%, var(--blue-glow), transparent 68%); /* @kind color */
+  --grad-panel:  linear-gradient(180deg, #12161C 0%, #0A0D11 100%); /* @kind color */
+  --scrim-hero:  linear-gradient(90deg, rgba(3,5,6,0.94) 0%, rgba(3,5,6,0.62) 46%, transparent 78%); /* @kind color */
+  --scrim-bottom: linear-gradient(to top, rgba(3,5,6,0.9), transparent 60%); /* @kind color */
+
+  /* ============================================================
+     TYPE — tight neo-grotesque, brand-accurate
+     The site's face reads as a Helvetica-Now / Neue Haas Grotesk
+     class grotesque. Neither was supplied and neither is web-free,
+     so the system is authored against INTER, the closest available
+     match, which is loaded above and actually renders everywhere.
+     If Aether licenses the real face, prepend it to --font-sans and
+     add its @font-face — nothing else needs to change.
+     ============================================================ */
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --w-regular: 400; /* @kind font */
+  --w-medium: 500; /* @kind font */
+  --w-semibold: 600; /* @kind font */
+  --w-bold: 700; /* @kind font */
+
+  /* ---------- TYPE SCALE (desktop) ---------- */
+  --t-hero:    500 64px/1.02 var(--font-sans);   /* "Every Frame. Everywhere." */
+  --t-h1:      500 44px/1.06 var(--font-sans);   /* section headline */
+  --t-h2:      500 32px/1.12 var(--font-sans);
+  --t-h3:      600 22px/1.2  var(--font-sans);
+  --t-stat:    500 28px/1.1  var(--font-sans);   /* 1.2 kg, 4Kp60 */
+  --t-body:    400 15px/1.6  var(--font-sans);
+  --t-body-sm: 400 13px/1.55 var(--font-sans);
+  --t-label:   500 13px/1.2  var(--font-sans);
+  --t-eyebrow: 600 11px/1.1  var(--font-sans);   /* THE AETHER DEVICE */
+  --t-btn:     600 12px/1    var(--font-sans);   /* REQUEST A DEMO */
+  --t-nav:     500 12px/1    var(--font-sans);
+  --t-micro:   500 11px/1.3  var(--font-sans);
+  --t-mono:    400 12px/1.5  var(--font-mono);
+
+  /* letter spacing — the brand tracks its uppercase hard */
+  --ls-hero:    -0.025em; /* @kind font */
+  --ls-head:    -0.02em; /* @kind font */
+  --ls-body:     0; /* @kind font */
+  --ls-eyebrow:  0.14em; /* @kind font */   /* uppercase eyebrow labels */
+  --ls-btn:      0.09em; /* @kind font */   /* uppercase buttons */
+  --ls-nav:      0.08em; /* @kind font */
+  --ls-wordmark: 0.22em; /* @kind font */   /* A E T H E R lockup */
+
+  /* ---------- RADII — restrained, hardware-precise ---------- */
+  --r-xs: 2px; --r-sm: 4px; --r-md: 6px; --r-lg: 10px;
+  --r-xl: 14px; --r-2xl: 20px; --r-pill: 999px;
+
+  /* ---------- SPACING (8pt base) ---------- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;  --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px; --sp-20: 80px; --sp-24: 96px;
+
+  /* ---------- ELEVATION ---------- */
+  --sh-sm:   0 1px 2px rgba(0,0,0,0.4);
+  --sh-md:   0 4px 16px rgba(0,0,0,0.45);
+  --sh-lg:   0 12px 40px rgba(0,0,0,0.55);
+  --sh-btn:  0 2px 14px rgba(47,107,246,0.36);
+
+  /* ---------- MOTION ---------- */
+  --ease-std:  cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-in:   cubic-bezier(0.4, 0, 1, 1); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur: 200ms; /* @kind other */
+  --dur-slow: 400ms; /* @kind other */
+  --dur-glow: 2400ms; /* @kind other */
+}
+
+/* ============================================================
+   SEMANTIC DEFAULTS
+   ============================================================ */
+.ae { font-family: var(--font-sans); color: var(--fg1); background: var(--bg-base);
+      -webkit-font-smoothing: antialiased; }
+
+.ae-hero  { font: var(--t-hero); letter-spacing: var(--ls-hero); }
+.ae-h1    { font: var(--t-h1);   letter-spacing: var(--ls-head); }
+.ae-h2    { font: var(--t-h2);   letter-spacing: var(--ls-head); }
+.ae-h3    { font: var(--t-h3);   letter-spacing: var(--ls-head); }
+.ae-body  { font: var(--t-body); color: var(--fg2); }
+.ae-meta  { font: var(--t-body-sm); color: var(--fg3); }
+
+.ae-eyebrow {
+  font: var(--t-eyebrow); letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase; color: var(--blue-500);
+}
+
+.ae-btn {
+  font: var(--t-btn); letter-spacing: var(--ls-btn); text-transform: uppercase;
+  color: var(--fg-on-blue); background: var(--blue-500);
+  padding: 13px 22px; border: none; border-radius: var(--r-sm);
+  cursor: pointer; transition: background var(--dur) var(--ease-std),
+                               box-shadow var(--dur) var(--ease-std);
+}
+.ae-btn:hover  { background: var(--blue-400); box-shadow: var(--sh-btn); }
+.ae-btn:active { background: var(--blue-600); }
+
+.ae-btn-ghost {
+  font: var(--t-btn); letter-spacing: var(--ls-btn); text-transform: uppercase;
+  color: var(--fg1); background: transparent;
+  padding: 13px 22px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); cursor: pointer;
+  transition: border-color var(--dur) var(--ease-std), background var(--dur) var(--ease-std);
+}
+.ae-btn-ghost:hover { border-color: var(--blue-500); background: rgba(47,107,246,0.08); }
+
+.ae-btn-outline-blue {
+  font: var(--t-btn); letter-spacing: var(--ls-btn); text-transform: uppercase;
+  color: var(--blue-400); background: transparent;
+  padding: 13px 22px; border: 1px solid var(--blue-line);
+  border-radius: var(--r-sm); cursor: pointer;
+}
+.ae-btn-outline-blue:hover { background: var(--blue-tint); border-color: var(--blue-500); }
+
+.ae-card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.ae-stat {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 14px 20px; text-align: center;
+}
+
+/* links — defined up front so editor-added links never render default blue */
+a { color: var(--blue-400); text-decoration: none; }
+a:hover { color: var(--blue-300); text-decoration: underline; }
+
+/* on-air / status dot */
+.ae-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.ae-dot-onair { background: var(--onair); box-shadow: 0 0 8px var(--onair); }
+.ae-dot-ok    { background: var(--ok); }
+.ae-dot-idle  { background: var(--idle); }

@@ -1,0 +1,50 @@
+<!-- @dsCard group="Components" viewport="950x600" name="Aether Cloud — Transcoder" subtitle="Ingest, ABR ladder, encoder params, destinations — live" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aether Cloud — Transcoder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html,body{margin:0;height:100%;background:#08090B;overflow:hidden}
+  *{box-sizing:border-box}
+  a{color:var(--blue-400);text-decoration:none}a:hover{color:var(--blue-300)}
+  button.ae-b{font-family:var(--font-sans);transition:background var(--dur) var(--ease-std),border-color var(--dur) var(--ease-std),color var(--dur) var(--ease-std)}
+  button.ae-b:hover{filter:brightness(1.14)}
+  button.ae-b:focus-visible{outline:2px solid var(--blue-400);outline-offset:2px}
+  @keyframes ae-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#252B34;border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="22" fill="#0A0D11"/>
+    <path d="M22 74 L50 26 L78 74" stroke="#2F6BF6" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M39 74 L50 55 L61 74 Z" fill="#2F6BF6"/>
+  </svg>
+</template>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="../aether-edit/Icons.jsx"></script>
+<script type="text/babel" src="Parts.jsx"></script>
+<script type="text/babel" src="Transcoder.jsx"></script>
+<script type="text/babel" data-presets="react">
+  const boot = () => window.mount ? window.mount() : setTimeout(boot, 40);
+  boot();
+</script>
+</body>
+</html>
