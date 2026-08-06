@@ -59,6 +59,15 @@ func RunHardware(ctx context.Context, s sampler.Sampler, h *hub.Hub, interval ti
 			sessions := smp.GPU.EncoderSessions
 			payload.EncoderSessions = &sessions
 		}
+		// Suppress a fully-empty frame: with no GPU and CPU not yet
+		// primed (first sample before a /proc/stat delta), every field
+		// is nil and the payload would marshal to {}, a meaningless
+		// event. The GPUStatus event above already carries the
+		// hardware-unavailable signal the console needs; the next tick
+		// carries at least cpuUtilPct.
+		if !smp.CPUValid && smp.GPU == nil {
+			continue
+		}
 		data, err := json.Marshal(payload)
 		if err != nil {
 			log.Error("marshal hardware sample", "err", err)
