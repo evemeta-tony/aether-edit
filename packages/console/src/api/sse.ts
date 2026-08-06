@@ -69,8 +69,13 @@ export function connectSse(url: string, handlers: SseHandlers): SseConnection {
         if (res.status === 401) {
           const refreshed = await refreshAccessToken();
           if (!refreshed) {
+            // Terminal: refresh failed, so the session is unauthenticated and
+            // the loop is dead. Emit the error, fire the global unauthorized
+            // handler, then mark the connection closed so a later close() is a
+            // correct no-op rather than one that flips an already-dead loop.
             fireUnauthorized();
             setStatus("error");
+            closed = true;
             return;
           }
           attempt += 1;

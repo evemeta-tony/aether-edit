@@ -54,9 +54,14 @@ export function FileTranscoder({ session }: { session: SessionState }) {
 
   // ---- uploads (FT-2) ----
   const onLanded = useCallback(() => {
-    // The landed transfer becomes a queued job via FT-2 -> FT-3; refetch the
-    // job list so the new row appears from the authoritative source (no
-    // fabricated local job is inserted).
+    // A landed transfer publishes aether.ft.upload.landed.v1, which FT-3
+    // consumes to probe and register the SOURCE. It does not auto-create a
+    // job (a job is an explicit POST /v1/jobs against the probed source), so
+    // we do NOT fabricate a queued row here. We only refetch the authoritative
+    // job list -- if a job already exists for this source it will appear; the
+    // transfer row itself stays in the honest "Landed / source registered"
+    // state until a job is created. Endpoint-level landed->job behavior is
+    // confirmed at deployment time (FT-2/FT-3 are merged, not yet deployed).
     jobsData.reload();
   }, [jobsData]);
   const { uploads, add, pause, resume, cancel } = useUploads(onLanded);

@@ -23,7 +23,12 @@ const U_STATE: Record<EngineState, [Tone, string]> = {
   paused: ["idle", "Paused"],
   error: ["err", "Link lost · resuming"],
   verifying: ["warn", "Verifying checksum"],
-  landed: ["ok", "Landed"],
+  // "Landed" means POST .../complete returned 200: the object is stored and the
+  // landed-object event (aether.ft.upload.landed.v1) is published, which FT-3
+  // consumes to probe and register the SOURCE. It does NOT create a transcode
+  // job -- a job is an explicit POST /v1/jobs against the probed source. So the
+  // honest label stops at the source being registered, not at a queued job.
+  landed: ["ok", "Landed · source registered"],
   canceled: ["idle", "Canceled"],
 };
 

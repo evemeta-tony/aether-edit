@@ -2,9 +2,12 @@
 //
 // React binding over the real upload engine. Replaces the prototype's
 // useUploads simulation: add(files) starts real FT-2 sessions, and the hook
-// re-renders on every engine emit. onLanded fires once per session when the
-// landed-object event has been published, so the caller can reflect the queued
-// job (which actually arrives over FT-3 / FT-4, not fabricated here).
+// re-renders on every engine emit. onLanded fires once per session when
+// POST .../complete has returned 200 (the landed-object event is published).
+// That event registers the SOURCE in FT-3; it does not create a job. The
+// caller therefore does not fabricate a queued job -- it refetches the real
+// job list and leaves the transfer in the honest "landed / source registered"
+// state until an explicit job is created.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UploadTask, type UploadView } from "../upload/engine";

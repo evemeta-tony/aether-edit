@@ -4,9 +4,12 @@
 // engine drives. Shapes mirror services/upload/server.go exactly:
 //   POST   /v1/uploads                      -> {uploadId, chunkSizeBytes, chunkCount}
 //   GET    /v1/uploads/{id}                 -> session state incl. server chunk map
-//   PUT    /v1/uploads/{id}/chunks/{n}      -> chunk write (exact Content-Length +
-//                                              X-Chunk-Sha256; 429 + Retry-After on
-//                                              backpressure)
+//   PUT    /v1/uploads/{id}/chunks/{n}      -> chunk write (X-Chunk-Sha256;
+//                                              429 + Retry-After on backpressure).
+//                                              Content-Length is a forbidden fetch
+//                                              header; the browser sets it from the
+//                                              ArrayBuffer body, so we do not (and
+//                                              cannot) set it ourselves.
 //   POST   /v1/uploads/{id}/complete        -> assembly + landed-object publish
 //   DELETE /v1/uploads/{id}                 -> cancel
 //
@@ -94,7 +97,8 @@ export async function putChunk(
       body,
       headers: {
         "Content-Type": "application/octet-stream",
-        "Content-Length": String(body.byteLength),
+        // Content-Length is a forbidden header name; fetch silently drops it and
+        // sets the real length from the ArrayBuffer body. We do not set it here.
         "X-Chunk-Sha256": sha256Hex,
       },
       signal,

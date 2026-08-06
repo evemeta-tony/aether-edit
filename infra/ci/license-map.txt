@@ -8,28 +8,36 @@ github.com/nats-io/nats.go Apache-2.0
 github.com/jackc/pgx MIT
 github.com/google/uuid BSD-3-Clause
 golang.org/x BSD-3-Clause
-# Pre-existing Go dependency gap: the go.mod files under services/ reference
-# these modules but the map only carried four prefixes, so check-licenses.sh
-# was already red on main for all of them (independent of FT-5). Backfilled
-# here with SPDX ids verified from each module's own LICENSE file in the local
-# Go module cache, so the repo CI gate (bash infra/ci/check-all.sh) goes green.
-# The in-repo services/contracts module is first-party (the repo's own code).
+# Pre-existing Go dependency gap (closed here, independent of FT-5). The go.mod
+# files under services/ reference these modules but the map only carried four
+# prefixes, so check-licenses.sh was already RED on main for all of them before
+# this PR (Argus PR#7 M2 / Noa-verifiable). Each SPDX id below is verified from
+# the module's own LICENSE file. Entries are pinned to the EXACT module path
+# actually referenced (or, for a family with its own submodules, the family
+# root) rather than a broad vendor prefix: a bare "github.com/aws" would
+# longest-prefix-match ANY future github.com/aws/... module and silently pass
+# S7 regardless of its real license, which is exactly the gate hole S7 exists
+# to stop. github.com/aws/smithy-go is a SEPARATE module from the aws-sdk-go-v2
+# family and is listed on its own line for the same reason.
 github.com/evemeta-tony/aether-edit MIT
 github.com/NVIDIA/go-nvml Apache-2.0
 github.com/klauspost/compress BSD-3-Clause
 github.com/nats-io/nkeys Apache-2.0
 github.com/nats-io/nuid Apache-2.0
 gopkg.in/yaml.v3 MIT
-github.com/golang-jwt/jwt MIT
+github.com/golang-jwt/jwt/v5 MIT
 github.com/jackc/pgpassfile MIT
 github.com/jackc/pgservicefile MIT
 github.com/jackc/puddle MIT
 github.com/kr/text MIT
 github.com/rogpeppe/go-internal BSD-3-Clause
-github.com/aws Apache-2.0
+github.com/aws/aws-sdk-go-v2 Apache-2.0
+github.com/aws/smithy-go Apache-2.0
 github.com/stretchr/testify MIT
-# FT-5 console (packages/console) direct dependencies. SPDX ids verified
-# against each package's own package.json "license" field in node_modules.
+# FT-5 console (packages/console) direct dependencies (in scope for this PR:
+# these deps land with packages/console/package.json in this same change). SPDX
+# ids verified from each package's own "license" field. node_modules is not
+# committed, so this map is the offline source the check trusts for them.
 lucide-react ISC
 react MIT
 react-dom MIT

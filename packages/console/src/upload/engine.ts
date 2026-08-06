@@ -174,6 +174,26 @@ export class UploadTask {
     try {
       const mime = this.file.type || "application/octet-stream";
       const created = await createUpload(this.file.name, this.file.size, mime);
+      // Validate the create response at the boundary (S1): chunkSizeBytes and
+      // chunkCount are coerced straight into slice/offset arithmetic, so a
+      // zero/negative chunk size or a chunkCount inconsistent with the file
+      // size would make chunkLen() go negative and produce empty/backwards
+      // slices that hash to the empty buffer and loop until the retry ceiling.
+      // Reject an incoherent session up front rather than silently corrupting.
+      if (
+        !Number.isInteger(created.chunkSizeBytes) ||
+        created.chunkSizeBytes <= 0 ||
+        !Number.isInteger(created.chunkCount) ||
+        created.chunkCount <= 0 ||
+        Math.ceil(this.file.size / created.chunkSizeBytes) !== created.chunkCount
+      ) {
+        this.fail(
+          `upload session returned an inconsistent chunk map ` +
+            `(size=${this.file.size}, chunkSizeBytes=${created.chunkSizeBytes}, ` +
+            `chunkCount=${created.chunkCount})`,
+        );
+        return;
+      }
       this.uploadId = created.uploadId;
       this.chunkSizeBytes = created.chunkSizeBytes;
       this.chunkCount = created.chunkCount;

@@ -335,7 +335,7 @@ export function Graph({ data, max, live }: { data: number[]; max: number; live: 
         {max.toFixed(0)} fps
       </span>
       <span style={{ position: "absolute", left: 7, bottom: 4, font: "400 9px var(--font-mono)", color: "var(--fg4)" }}>
-        {"−"}60 s
+        {"\u221260 s"}
       </span>
     </div>
   );
