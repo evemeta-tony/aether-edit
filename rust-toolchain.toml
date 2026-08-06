@@ -1,0 +1,5 @@
+# rust-toolchain.toml
+# Pinned stable Rust for the whole workspace. Bump deliberately, in its own WO.
+[toolchain]
+channel = "1.89.0"
+components = ["clippy", "rustfmt"]
