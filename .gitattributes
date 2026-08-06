@@ -1,0 +1,23 @@
+# .gitattributes
+# LF everywhere (project rule C2). Explicit per-extension rules back up the
+# text=auto default so source files are LF even if detection ever misfires.
+* text=auto eol=lf
+*.go text eol=lf
+*.rs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.py text eol=lf
+*.css text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.txt text eol=lf
+
+# Third-party design trees are preserved byte-exact: no EOL conversion.
+docs/design/ui_kits/** -text

@@ -1,0 +1,110 @@
+# .github/workflows/ci.yml
+# CI gate for aether-edit (delivered by WO-001R). Every job shells out to a
+# script under infra/ci/ so the identical checks run locally via
+# infra/ci/check-all.sh. Lint jobs detect whether matching sources exist and
+# report "nothing to lint yet" while the tree is scaffold-only; the checks are
+# real and armed, not stubs.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lf-bom:
+    name: LF and BOM check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check line endings and BOMs
+        run: bash infra/ci/check-lf.sh
+
+  first-line:
+    name: filename first-line check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check path-comment first lines
+        run: bash infra/ci/check-first-line.sh
+
+  dashes:
+    name: em/en dash check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check for em and en dashes
+        run: bash infra/ci/check-dashes.sh
+
+  licenses:
+    name: license allowlist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check dependency licenses
+        run: bash infra/ci/check-licenses.sh
+
+  lint-go:
+    name: go lint (gofmt, vet, build, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: detect go sources
+        id: detect
+        run: |
+          if [ -n "$(git ls-files -- '*.go')" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: set up go
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.12'
+      - name: lint go
+        run: bash infra/ci/lint-go.sh
+
+  lint-rust:
+    name: rust lint (fmt, clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # rustup is preinstalled on ubuntu-latest and honors rust-toolchain.toml,
+      # so no separate setup step is needed; the script exits early with a
+      # notice while no .rs files are tracked.
+      - name: lint rust
+        run: bash infra/ci/lint-rust.sh
+
+  lint-js:
+    name: js lint (eslint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: detect js sources
+        id: detect
+        run: |
+          if [ -n "$(git ls-files -- '*.ts' '*.tsx' '*.js' '*.jsx')" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: set up node
+        if: steps.detect.outputs.found == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: lint js
+        run: bash infra/ci/lint-js.sh
+
+  codegen-freshness:
+    # INERT BY DESIGN: WO-014 delivers the schema codegen pipeline and
+    # activates this job by replacing the notice below with a real
+    # regenerate-and-diff check. Until WO-014 lands, this job only records
+    # that the slot exists.
+    name: codegen freshness (inert until WO-014)
+    runs-on: ubuntu-latest
+    steps:
+      - name: inert notice
+        run: echo "codegen-freshness is inert; WO-014 activates it with a regenerate-and-diff check"

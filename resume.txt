@@ -1,0 +1,1 @@
+The operational log for aether-edit lives outside this repo until the log-migration decision is made; this file is a pointer only, not the log.

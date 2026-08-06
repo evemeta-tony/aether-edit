@@ -1,0 +1,14 @@
+ffmpeg version 7.1 Copyright (c) 2000-2024 the FFmpeg developers
+  configuration:
+    --prefix=/opt/aether/ffmpeg
+    --disable-debug
+    --disable-doc
+    --disable-ffplay
+    --disable-static
+    --enable-shared
+    --enable-ffnvcodec
+    --enable-cuvid
+    --enable-nvdec
+    --enable-nvenc
+    --enable-libopus
+    --enable-libdav1d
