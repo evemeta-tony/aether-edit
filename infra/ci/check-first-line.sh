@@ -21,6 +21,10 @@ is_exempt() {
   local candidate="$1" pattern
   [ -f "$EXCEPTIONS_FILE" ] || return 1
   while IFS= read -r pattern; do
+    # Trim trailing whitespace (including a stray CR) so an exception pattern
+    # still matches even if the file picks up trailing-space damage; check-lf
+    # flags the CR case independently.
+    pattern="${pattern%"${pattern##*[![:space:]]}"}"
     case "$pattern" in
       '' | '#'*) continue ;;
     esac
