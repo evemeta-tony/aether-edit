@@ -1,0 +1,10 @@
+# infra/ci/license-map.txt
+# Curated offline license map for check-licenses.sh. One per line:
+#   <module-or-package prefix> <SPDX license expression>
+# An entry matches a dependency exactly or as a leading path segment
+# (longest prefix wins). Verify upstream before adding an entry; this file is
+# the offline source of truth the license check trusts.
+github.com/nats-io/nats.go Apache-2.0
+github.com/jackc/pgx MIT
+github.com/google/uuid BSD-3-Clause
+golang.org/x BSD-3-Clause
