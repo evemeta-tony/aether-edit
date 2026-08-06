@@ -1,0 +1,15 @@
+# infra/ci/license-exceptions.txt
+# Signed license exceptions for check-licenses.sh. One per line:
+#   <dependency-id> <one-line pointer to the signed exception record>
+# Only add entries here that have a signed record. Everything else must be
+# MIT, BSD, Apache-2.0, or ISC.
+#
+# PLACEHOLDER IDS: the two entries below are provisional labels, not real
+# manifest dependency identifiers. The ffmpeg and Riva NIM dependencies land
+# with FT-3 / WO-010; when they do, these entries MUST be re-keyed to the
+# exact identifiers those manifests use, because check-licenses.sh matches on
+# the manifest's dependency id. Until re-keyed, these entries match nothing
+# and the real dependencies fail closed as UNRESOLVED, which is the intended
+# tripwire.
+ffmpeg-lgpl-pinned-build LGPL pinned ffmpeg build, approved per signed exception record C-5
+riva-nim NVIDIA Riva NIM, approved per signed exception record Q-6

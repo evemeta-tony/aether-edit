@@ -1,0 +1,10 @@
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-a","workspaceId":"ws-1","state":"queued","at":"2026-08-06T10:00:00Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-b","workspaceId":"ws-1","state":"queued","at":"2026-08-06T10:00:01Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-c","workspaceId":"ws-2","state":"queued","at":"2026-08-06T10:00:02Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-d","workspaceId":"ws-2","state":"queued","at":"2026-08-06T10:00:03Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-a","workspaceId":"ws-1","state":"running","at":"2026-08-06T10:00:05Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-b","workspaceId":"ws-1","state":"running","at":"2026-08-06T10:00:06Z"}}
+{"subject":"aether.ft.job.progress.v1","payload":{"jobId":"job-a","workspaceId":"ws-1","fps":120.5,"speedX":2.01,"etaSeconds":300,"progressPct":10,"at":"2026-08-06T10:00:07Z"}}
+{"subject":"aether.ft.job.progress.v1","payload":{"jobId":"job-b","workspaceId":"ws-1","fps":60.25,"speedX":1.004,"etaSeconds":600,"progressPct":5,"at":"2026-08-06T10:00:08Z"}}
+{"subject":"aether.ft.job.state.v1","payload":{"jobId":"job-c","workspaceId":"ws-2","state":"running","at":"2026-08-06T10:00:09Z"}}
+{"subject":"aether.ft.job.progress.v1","payload":{"jobId":"job-c","workspaceId":"ws-2","fps":30,"speedX":0.5,"etaSeconds":1200,"progressPct":1,"at":"2026-08-06T10:00:10Z"}}

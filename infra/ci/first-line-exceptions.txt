@@ -1,0 +1,5 @@
+# infra/ci/first-line-exceptions.txt
+# Glob patterns (matched against repo-relative paths) that are exempt from the
+# filename first-line check. Reserved for third-party trees carried verbatim;
+# first-party code is never exempt.
+docs/design/ui_kits/**
