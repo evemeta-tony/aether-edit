@@ -6,12 +6,16 @@
 # the path comment is expected on line 2, since the shebang is not a comment.
 # Files matching a pattern in infra/ci/first-line-exceptions.txt (third-party
 # verbatim trees) are skipped. Formats without comments (e.g. JSON) are not in
-# the extension list and are therefore exempt by construction.
+# the extension list and are therefore exempt by construction. A leading UTF-8
+# BOM is reported explicitly here (not as a confusing first-line mismatch) so
+# this check stays independent of check-lf.sh job ordering in CI.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
 EXCEPTIONS_FILE="infra/ci/first-line-exceptions.txt"
+
+utf8_bom="$(printf '\357\273\277')"
 
 is_exempt() {
   local candidate="$1" pattern
@@ -45,6 +49,11 @@ while IFS= read -r -d '' file; do
   fi
 
   line="$(head -n 1 -- "$file")"
+  if [ "${line#"$utf8_bom"}" != "$line" ]; then
+    echo "first-line: $file: leading UTF-8 BOM found; remove the BOM (check-lf.sh flags this too)"
+    failures=$((failures + 1))
+    continue
+  fi
   case "$line" in
     '#!'*)
       line="$(sed -n '2p' -- "$file")"

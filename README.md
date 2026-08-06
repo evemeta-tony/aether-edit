@@ -44,10 +44,13 @@ cd aether-edit
 bash infra/ci/check-all.sh
 ```
 
-That third command runs exactly the checks CI runs. A fresh clone plus this
-command equals green CI: on the scaffold it reports the tree clean and the
-lint gates armed but with nothing to lint yet. No toolchain installation is
-required until source files for that toolchain exist.
+That third command runs the same check scripts CI runs. On the scaffold it
+reports the tree clean and the lint gates armed but with nothing to lint yet.
+A green local run is a strong predictor of green CI, but not a byte-for-byte
+replay: the hosted-runner setup steps (actions/setup-go, actions/setup-node,
+rustup honoring `rust-toolchain.toml` on the runner) execute only in GitHub
+Actions. No toolchain installation is required until source files for that
+toolchain exist.
 
 ## Workflow
 

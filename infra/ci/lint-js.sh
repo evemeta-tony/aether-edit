@@ -23,7 +23,9 @@ while IFS= read -r -d '' manifest; do
     */node_modules/*) continue ;;
   esac
   dir="$(dirname "$manifest")"
-  if [ -z "$(git ls-files -- "$dir/*.ts" "$dir/*.tsx" "$dir/*.js" "$dir/*.jsx")" ]; then
+  # Match sources at any depth under the package directory, so nested layouts
+  # (e.g. $dir/src/**) cannot dodge the gate.
+  if [ -z "$(git ls-files -- "$dir" | grep -E '\.(ts|tsx|js|jsx)$' || true)" ]; then
     continue
   fi
   covered=1

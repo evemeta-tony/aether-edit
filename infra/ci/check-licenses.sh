@@ -27,6 +27,8 @@ allowed_single() {
 }
 
 # Handles plain SPDX ids plus simple "A OR B" / "A AND B" expressions.
+# Expressions mixing AND and OR are never passed here: judge() rejects them
+# up front as UNRESOLVED (fail closed) rather than risking a mis-parse.
 allowed_license() {
   local expr="$1" part ok
   expr="${expr//(/}"
@@ -88,6 +90,11 @@ judge() {
   fi
   if [ -z "$license" ]; then
     echo "UNRESOLVED: $dep ($manifest): license not resolvable offline; verify upstream and add it to $MAP_FILE, or record a signed exception in $EXCEPTIONS_FILE"
+    failures=$((failures + 1))
+    return
+  fi
+  if [[ "$license" == *" OR "* && "$license" == *" AND "* ]]; then
+    echo "UNRESOLVED: $dep ($manifest): mixed AND/OR license expression '$license' is not parsed here and fails closed; verify upstream and record the verified license in $MAP_FILE, or record a signed exception in $EXCEPTIONS_FILE"
     failures=$((failures + 1))
     return
   fi

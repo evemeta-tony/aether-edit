@@ -29,6 +29,14 @@ jobs:
       - name: check path-comment first lines
         run: bash infra/ci/check-first-line.sh
 
+  dashes:
+    name: em/en dash check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check for em and en dashes
+        run: bash infra/ci/check-dashes.sh
+
   licenses:
     name: license allowlist
     runs-on: ubuntu-latest

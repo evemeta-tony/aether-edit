@@ -1,0 +1,5 @@
+# infra/ci/dash-exceptions.txt
+# Glob patterns (matched against repo-relative paths) that are exempt from the
+# em/en dash check (check-dashes.sh). Reserved for third-party trees carried
+# verbatim; first-party files are never exempt.
+docs/design/ui_kits/**
