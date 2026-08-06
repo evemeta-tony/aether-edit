@@ -13,6 +13,11 @@ Named sources referenced below:
   aether.ft.upload.landed.v1; metering events on aether.ft.metering.v1; quota
   hook package services/contracts (QuotaChecker, ConfigQuota); FT-4 SSE streams
   GET /v1/streams/hardware, GET /v1/streams/jobs, GET /v1/streams/logs.
+  Freeze-state note (Argus PR#5 pass 1, S1): for FT-4 only the three stream
+  PATHS above are frozen. Every stream payload field named in this map
+  (gpuUtilPct, progressPct, speedX, etaSeconds, line, tag, level, at) is
+  proposed for build-ahead, to be ratified when FT-4's stream schema PR merges
+  under the V-4 freeze rule. Do not treat these field names as settled.
 - FT-2 upload-session API (expected routes, named here for build-ahead):
   POST /v1/uploads (create session; body carries fileName, sizeBytes, mime;
   response carries uploadId, chunkSizeBytes, maxParallelStreams, chunk map),
@@ -155,7 +160,7 @@ render time; per the display conventions below, derived figures stay derived.
 | Rendered item | Prototype source | Real source |
 | --- | --- | --- |
 | Plus icon (add target) | static | FT-3 POST /v1/delivery-targets |
-| Per target: name, protocol tag, host, note | hardcoded list | FT-3 GET /v1/delivery-targets |
+| Per target: name, protocol tag, host, note | hardcoded list | FT-3 GET /v1/delivery-targets; the prototype's Notify webhook target (proto HOOK, hooks.aether.cloud/jobs) is excluded from v1 per AM-10, see U5 |
 | Per target health Dot (ok/warn, idle when queue paused) | tone + running | FT-3 delivery target health on GET /v1/delivery-targets, idled by queue run state |
 
 ## 5. Transfer panel and upload primitives (Uploader.jsx)
@@ -222,6 +227,7 @@ render time; per the display conventions below, derived figures stay derived.
 | U2 | UserMenu Plan tier, Account settings, API keys, Billing and usage, Sign out targets | billing/account surface is out of scope for FT-2/FT-3/FT-4/FT-6 | new WO: account/billing service; Sign out belongs to the U1 auth WO |
 | U3 | EVE per-title analysis engine (the decision logic behind the EVE steps: content-adaptive ladder, VMAF target) | contracts name no analysis service; FT-3 can carry the stage status fields (mapped in 4.1) but nothing computes them yet | new WO: EVE analysis service, feeding FT-3 job records |
 | U4 | Batch scoping ("this batch" grouping of jobs) | no batch concept in the expected FT-3 routes; current map treats the visible job list as one batch | FT-3, as a batchId on POST /v1/jobs plus GET /v1/jobs?batch= |
+| U5 | Notify webhook delivery target (proto HOOK, hooks.aether.cloud/jobs) rendered in the delivery panel | webhook delivery is excluded from v1 per AM-10; the rendered target is prototype content, not product scope | deferred Co-Chair decision (v1.x webhook WO, if ever); the delivery panel ships without a HOOK target type |
 
 Coverage: every rendered readout, state, and control in FileTranscoder.jsx,
 Uploader.jsx, and the Parts.jsx primitives they use appears in sections 1

@@ -21,7 +21,52 @@ added and no characters were changed.
 | ui_kits/aether-live/Uploader.jsx | 11160 | 6808c3d435da04d3cb3d84c9f68731b299795def262fc514f63ae7381f55aba1 |
 | ui_kits/aether-live/image-slot.js | 65350 | fff26d081c8d9d60870f86c7539a5d179b9cdab15e67f2b205508a068e7c7ff6 |
 
-Total: 11 files, 181128 bytes.
+Total: 11 files, 180828 bytes.
+
+## C3 path-comment posture for the two root-level files (Argus PR#5 pass 1, M2)
+
+colors_and_type.css and tokens.json sit at docs/design/ directly, outside
+docs/design/ui_kits/. They are part of the same third-party verbatim set as the
+ui_kits/ tree and carry no first-line path comment for two hard reasons:
+
+1. Verbatim fidelity is the load-bearing property of this WO. Adding a comment
+   changes the bytes and breaks the pinned SHA-256 above. tokens.json is JSON
+   and cannot carry a comment at all without becoming invalid.
+2. Placement is forced by the source tree: both HTML shells reference the
+   stylesheet as ../../colors_and_type.css, so moving the file under ui_kits/
+   would break the verbatim HTML, which cannot be edited.
+
+Decision (recorded, per the raw-speed directive): the C3 third-party exemption
+is applied to these two files as members of the declared verbatim set, with
+this inventory table serving as the path record in lieu of first-line
+comments. If the Co-Chairs later rule the exemption strictly path-scoped to
+docs/design/ui_kits/, the remedy is a rule-text amendment naming these two
+files, not a byte edit.
+
+## Third-party dependencies and licenses carried by the verbatim tree (M3)
+
+The verbatim tree is not inert: the HTML shells load CDN scripts and
+image-slot.js fetches Google Fonts. Nothing in this repo executes them, and
+the tree is read-only reference (R7), but the licenses arrive with the bytes:
+
+| Dependency | Where referenced | Version | License |
+| --- | --- | --- | --- |
+| lucide | File_transcoder.html, Live_transcoder.html (unpkg) | 0.460.0 | ISC |
+| react / react-dom | both HTML shells (unpkg) | 18.3.1 | MIT |
+| @babel/standalone | both HTML shells (unpkg) | 7.29.0 | MIT |
+| Inter (font) | colors_and_type.css @import, image-slot.js fetch (fonts.googleapis.com) | variable | SIL OFL 1.1 |
+
+Known supply-chain notes for the FT-5 port (recorded now so FT-5 inherits a
+list rather than discovering it):
+
+1. The lucide script tag carries no integrity attribute; React, ReactDOM, and
+   Babel are SRI-pinned. The un-pinned lucide load is a third-party artifact
+   of the source, not an edit we can make, and must be pinned or vendored when
+   FT-5 ports this code.
+2. SIL OFL 1.1 (Inter) is not on the S7 allowlist and needs an S7 ruling
+   before FT-5 ships the font in product code.
+3. S7 posture for this WO is therefore "deferred to the FT-5 port with the
+   dependency set enumerated above," not "N/A."
 
 ## Fidelity checks performed
 
