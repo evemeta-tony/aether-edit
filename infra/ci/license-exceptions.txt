@@ -1,0 +1,7 @@
+# infra/ci/license-exceptions.txt
+# Signed license exceptions for check-licenses.sh. One per line:
+#   <dependency-id> <one-line pointer to the signed exception record>
+# Only add entries here that have a signed record. Everything else must be
+# MIT, BSD, Apache-2.0, or ISC.
+ffmpeg-lgpl-pinned-build LGPL pinned ffmpeg build, approved per signed exception record C-5
+riva-nim NVIDIA Riva NIM, approved per signed exception record Q-6
