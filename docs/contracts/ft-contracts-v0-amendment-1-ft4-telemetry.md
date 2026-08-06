@@ -103,7 +103,33 @@ false throughout: consumers reject unknown fields, never coerce (S1).
 }
 ```
 
-### B.3 Log stream event (SSE event "log" on /v1/streams/logs)
+### B.3 Aggregate (sticky SSE event "aggregate" on /v1/streams/jobs)
+
+The jobs stream emits two event types: per-job "job" events (B.2) and the
+sticky "aggregate" event consumed by the FT-5 batch readouts (queue counts,
+farm fps, aggregate realtime multiple). farmFps and aggregateSpeedX are sums
+over currently running jobs; completed and failed are monotonic counters for
+the service lifetime.
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aether.ft.telemetry.aggregate.v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["queued", "inFlight", "completed", "failed", "farmFps", "aggregateSpeedX"],
+  "properties": {
+    "queued": {"type": "integer", "minimum": 0},
+    "inFlight": {"type": "integer", "minimum": 0},
+    "completed": {"type": "integer", "minimum": 0},
+    "failed": {"type": "integer", "minimum": 0},
+    "farmFps": {"type": "number", "minimum": 0},
+    "aggregateSpeedX": {"type": "number", "minimum": 0}
+  }
+}
+```
+
+### B.4 Log stream event (SSE event "log" on /v1/streams/logs)
 
 ```json
 {
@@ -173,7 +199,7 @@ Progress for an unknown job implies the job is running.
 ### C.3 aether.ft.log.v1 (producers: FT-2 and FT-3)
 
 Tag convention: "job" for encode-farm lines, "transfer" for upload lines.
-Wire shape is exactly B.3 (the log stream is a validated passthrough; the
+Wire shape is exactly B.4 (the log stream is a validated passthrough; the
 service normalizes "at" to UTC millisecond precision on the way out).
 
 ## Change control
