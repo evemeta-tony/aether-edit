@@ -71,7 +71,18 @@ func run(log *slog.Logger) error {
 	jobsHub := hub.New(cfg.StreamBufferSize)
 	logsHub := hub.New(cfg.StreamBufferSize)
 
-	go pipeline.RunHardware(ctx, sys, hardwareHub, cfg.SampleInterval, log)
+	// The hardware pipeline runs under its own cancel and is waited on before
+	// sys.Close fires: a sample in flight must never race NVML shutdown.
+	// Deferred order on return: cancel the pipeline, wait for it to exit,
+	// then Close (deferred above) releases NVML.
+	pipeCtx, pipeCancel := context.WithCancel(ctx)
+	pipelineDone := make(chan struct{})
+	go func() {
+		defer close(pipelineDone)
+		pipeline.RunHardware(pipeCtx, sys, hardwareHub, cfg.SampleInterval, log)
+	}()
+	defer func() { <-pipelineDone }()
+	defer pipeCancel()
 
 	agg := jobs.New(jobsHub)
 	logCons := logstream.New(logsHub)

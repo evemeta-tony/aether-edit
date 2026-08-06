@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/evemeta-tony/aether-edit/services/contracts"
@@ -82,6 +83,9 @@ func publishStatus(h *hub.Hub, st sampler.GPUStatus, last *string) {
 
 func ptr(f float64) *float64 { return &f }
 
+// round1 rounds to one decimal place, correct for negative inputs too
+// (unclamped readings such as powerW or junctionC could go negative on a
+// misreporting sensor and must not round toward zero).
 func round1(f float64) float64 {
-	return float64(int64(f*10+0.5)) / 10
+	return math.Round(f*10) / 10
 }

@@ -15,7 +15,8 @@ import (
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/hub"
 )
 
-// Subjects consumed by the aggregator (FT-4 API addendum to contract 4).
+// Subjects consumed by the aggregator, pinned in
+// docs/contracts/ft-contracts-v0-amendment-1-ft4-telemetry.md (Part C).
 const (
 	SubjectJobState    = "aether.ft.job.state.v1"
 	SubjectJobProgress = "aether.ft.job.progress.v1"

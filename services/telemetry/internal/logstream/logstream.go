@@ -15,7 +15,8 @@ import (
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/hub"
 )
 
-// SubjectLog is the structured log subject (FT-4 API addendum to contract 4).
+// SubjectLog is the structured log subject, pinned in
+// docs/contracts/ft-contracts-v0-amendment-1-ft4-telemetry.md (Part C.3).
 const SubjectLog = "aether.ft.log.v1"
 
 // TagPattern constrains log tags (and the ?tag= filter) at the boundary.

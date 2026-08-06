@@ -77,11 +77,16 @@ one tab (for example `tag=job` or `tag=transfer`); tags must match
 
 - `event: log`, data: `{"line":s,"tag":s,"level":"debug"|"info"|"warn"|"error","at":RFC3339}`
 
-## NATS input subjects (FT-4 addendum to contract 4)
+## NATS input subjects (proposed amendment 1 to contracts v0)
 
 The telemetry service consumes three plain NATS subjects. Producers are the
-FT-2 (transfer) and FT-3 (job) services. Payloads failing validation are
-rejected and logged, never coerced; unknown JSON fields are rejected.
+FT-2 (transfer) and FT-3 (job) services. These subjects and the shared Go
+types below are NOT part of the frozen contract 4 text; they are pinned as
+`docs/contracts/ft-contracts-v0-amendment-1-ft4-telemetry.md` (JSON Schemas
+included) and per the V-4 freeze rule require FT-2 and FT-3 owner
+confirmation on the transcoders-first thread before this service merges.
+Payloads failing validation are rejected and logged, never coerced; unknown
+JSON fields are rejected.
 
 ### aether.ft.job.state.v1 (producer: FT-3)
 
@@ -121,7 +126,8 @@ Progress for an unknown job implies the job is running.
   `replace ../contracts` directive. The contracts module is owned by the
   FT-2 lane; this service compiles once that branch lands. The exported
   types this service uses are `HardwareSample`, `JobStreamEvent`, and
-  `LogStreamEvent`, shaped exactly per contract 4.
+  `LogStreamEvent`, shaped exactly per
+  `docs/contracts/ft-contracts-v0-amendment-1-ft4-telemetry.md` (Part A).
 
 Acceptance of reported values against `nvidia-smi` ground truth on the OVH
 box is a deployment-time check per R10 and is not claimed by the unit tests.

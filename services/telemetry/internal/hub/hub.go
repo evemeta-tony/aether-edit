@@ -172,17 +172,26 @@ func (h *Hub) ServeConn(w http.ResponseWriter, r *http.Request, conn *Conn, hear
 			}
 			flusher.Flush()
 		case <-conn.notify:
-			evs, dropped := conn.Drain()
-			if dropped > 0 {
-				fmt.Fprintf(bw, "event: dropped\ndata: {\"dropped\":%d}\n\n", dropped)
+			// Drain until the buffer is confirmed empty before blocking again.
+			// A push that lands between a Drain and the next select can find
+			// the notify slot already full; without this re-check its event
+			// would wait for the next push or heartbeat to be flushed.
+			for {
+				evs, dropped := conn.Drain()
+				if dropped == 0 && len(evs) == 0 {
+					break
+				}
+				if dropped > 0 {
+					fmt.Fprintf(bw, "event: dropped\ndata: {\"dropped\":%d}\n\n", dropped)
+				}
+				for _, ev := range evs {
+					fmt.Fprintf(bw, "event: %s\ndata: %s\n\n", ev.Name, ev.Data)
+				}
+				if bw.Flush() != nil {
+					return
+				}
+				flusher.Flush()
 			}
-			for _, ev := range evs {
-				fmt.Fprintf(bw, "event: %s\ndata: %s\n\n", ev.Name, ev.Data)
-			}
-			if bw.Flush() != nil {
-				return
-			}
-			flusher.Flush()
 		}
 	}
 }
