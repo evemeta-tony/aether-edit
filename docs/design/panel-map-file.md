@@ -53,7 +53,7 @@ render time; per the display conventions below, derived figures stay derived.
 | --- | --- | --- |
 | Header right: file size "{job.size} GB" | job.size | FT-3 GET /v1/jobs/{id} (sizeBytes, originating from landed event sizeBytes) |
 | Poster frame (image-slot) | user-dropped still, sidecar persisted | FT-3 GET /v1/jobs/{id}/poster (frame extracted at probe time) |
-| "Poster . 00:00:04" badge | static | poster timestamp returned by FT-3 probe/poster metadata |
+| "Poster . 00:00:04" badge | static | poster timestamp returned by FT-3 probe/poster metadata; note the prototype value is a hardcoded string literal, not derived from any job field |
 | Duration badge fmtDur(job.dur) | job.dur | FT-3 GET /v1/jobs/{id}/probe durationSeconds |
 | Filename line | job.file | FT-3 GET /v1/jobs/{id} fileName (from upload session metadata; objectKey in the landed event is content-addressed, so display name travels in the job record) |
 | Row Container | SRC[job.src].container | FT-3 probe container/format |
@@ -152,7 +152,7 @@ render time; per the display conventions below, derived figures stay derived.
 | Row Keyframe "{gop*fps} frames" | derived | Derived (client) from preset gopSeconds and fps, per R3 (EVE: scene-aligned, from plan) |
 | Row Audio | p.audio | preset from FT-3 (EVE: loudness normalised, from plan) |
 | Row Formats out | container or formats join | Derived (client) from preset (manual: container; EVE: packaging formats, "none" when empty) |
-| Row Est. output "{n} GB" | duration x rate formula | Derived (client) from preset rate parameters and the selected job's probe duration, per R3; the estimator formula is owned by FT-3 docs and mirrored client side |
+| Row Est. output "{n} GB" | duration x rate formula | Derived (client) from preset rate parameters and the selected job's probe duration, per R3; the estimator formula is owned by FT-3 docs and mirrored client side. The prototype's constants (crf x 0.24 manual, 5.6 EVE) are illustrative magic numbers, not the FT-3 estimator spec; do not port them as spec |
 | Preset edit scope: edits apply to every job on that preset | setProfiles keyed by preset | FT-3 PATCH /v1/presets/{id} semantics (server-side shared preset) |
 
 ### 4.3 Delivery panel
@@ -161,7 +161,7 @@ render time; per the display conventions below, derived figures stay derived.
 | --- | --- | --- |
 | Plus icon (add target) | static | FT-3 POST /v1/delivery-targets |
 | Per target: name, protocol tag, host, note | hardcoded list | FT-3 GET /v1/delivery-targets; the prototype's Notify webhook target (proto HOOK, hooks.aether.cloud/jobs) is excluded from v1 per AM-10, see U5 |
-| Per target health Dot (ok/warn, idle when queue paused) | tone + running | FT-3 delivery target health on GET /v1/delivery-targets, idled by queue run state |
+| Per target health Dot (ok/warn, idle when queue paused) | tone + running | FT-3 delivery target health on GET /v1/delivery-targets, idled by queue run state; the prototype's per-target tone values are static literals, not health signal |
 
 ## 5. Transfer panel and upload primitives (Uploader.jsx)
 
