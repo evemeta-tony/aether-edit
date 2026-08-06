@@ -1,0 +1,12 @@
+{"eventId":"0198b6a0-0001-7000-8000-000000000001","workspaceId":"ws-fixture","userId":"user-1","kind":"upload_session_created","bytes":220000,"at":"2026-08-03T10:00:00Z"}
+{"eventId":"0198b6a0-0002-7000-8000-000000000002","workspaceId":"ws-fixture","userId":"user-1","kind":"upload_completed","bytes":220000,"at":"2026-08-03T10:05:00Z"}
+{"eventId":"0198b6a0-0003-7000-8000-000000000003","workspaceId":"ws-fixture","userId":"user-1","kind":"job_queued","jobId":"job-1","at":"2026-08-03T10:06:00Z"}
+{"eventId":"0198b6a0-0004-7000-8000-000000000004","workspaceId":"ws-fixture","userId":"user-1","kind":"job_started","jobId":"job-1","at":"2026-08-03T10:06:05Z"}
+{"eventId":"0198b6a0-0005-7000-8000-000000000005","workspaceId":"ws-fixture","userId":"user-1","kind":"job_completed","encodeSeconds":1800.5,"jobId":"job-1","at":"2026-08-03T10:36:05Z"}
+{"eventId":"0198b6a0-0006-7000-8000-000000000006","workspaceId":"ws-fixture","userId":"user-1","kind":"job_queued","jobId":"job-2","at":"2026-08-04T09:00:00Z"}
+{"eventId":"0198b6a0-0007-7000-8000-000000000007","workspaceId":"ws-fixture","userId":"user-1","kind":"job_started","jobId":"job-2","at":"2026-08-04T09:00:10Z"}
+{"eventId":"0198b6a0-0008-7000-8000-000000000008","workspaceId":"ws-fixture","userId":"user-1","kind":"job_failed","encodeSeconds":120.25,"jobId":"job-2","at":"2026-08-04T09:02:10Z"}
+{"eventId":"0198b6a0-0009-7000-8000-000000000009","workspaceId":"ws-fixture","userId":"user-2","kind":"upload_session_created","bytes":100000,"at":"2026-08-05T12:00:00Z"}
+{"eventId":"0198b6a0-000a-7000-8000-00000000000a","workspaceId":"ws-fixture","userId":"user-2","kind":"upload_completed","bytes":100000,"at":"2026-08-05T12:03:00Z"}
+{"eventId":"0198b6a0-000b-7000-8000-00000000000b","workspaceId":"ws-other","userId":"user-3","kind":"upload_completed","bytes":50000,"at":"2026-08-05T13:00:00Z"}
+{"eventId":"0198b6a0-000c-7000-8000-00000000000c","workspaceId":"ws-fixture","userId":"user-1","kind":"job_completed","encodeSeconds":900,"jobId":"job-3","at":"2026-07-28T08:00:00Z"}

@@ -1,0 +1,27 @@
+# infra/tenancy/plan-tiers.yaml
+# Config-defined plan tiers for the tenancy service (FT-6a). Mounted
+# at TENANCY_TIERS_CONFIG_PATH. The demo tier is deliberately
+# generous; FT-6b's Stripe entitlement mapping will move workspaces
+# between tiers.
+
+defaultTier: demo
+
+tiers:
+  demo:
+    encodeHoursPerMonth: 250
+    storageBytes: 2199023255552    # 2 TiB
+    maxUploadBytes: 137438953472   # 128 GiB per upload session
+    allowUploads: true
+    allowJobs: true
+  scale:
+    encodeHoursPerMonth: 1500
+    storageBytes: 10995116277760   # 10 TiB
+    maxUploadBytes: 549755813888   # 512 GiB per upload session
+    allowUploads: true
+    allowJobs: true
+  suspended:
+    encodeHoursPerMonth: 0
+    storageBytes: 0
+    maxUploadBytes: 0
+    allowUploads: false
+    allowJobs: false

@@ -1,0 +1,28 @@
+# infra/tenancy/aether-tenancy.service
+# systemd unit for the tenancy service on the OVH box (V-8:
+# first-user provisioning in versioned form). Install:
+#   sudo cp aether-tenancy.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now aether-tenancy
+# Rollback path (R10): sudo systemctl disable --now aether-tenancy;
+# the unit binds loopback only and nginx routing to it is additive.
+
+[Unit]
+Description=Aether tenancy, auth, quota, metering, API key service (FT-6a)
+After=network-online.target postgresql.service nats-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aether
+Group=aether
+EnvironmentFile=/etc/aether/tenancy.env
+ExecStart=/opt/aether/bin/tenancy
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
