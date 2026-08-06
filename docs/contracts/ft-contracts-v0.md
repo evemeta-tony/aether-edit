@@ -71,8 +71,11 @@ type QuotaChecker interface {
 Ships now with `ConfigQuota`: a real implementation that reads per
 workspace limits from a mounted YAML or JSON config file and enforces
 them (it denies over the limit with a typed reason). It is a real
-enforcement path, not a noop. FT6 later swaps in the metered
-implementation and owns end to end verification.
+enforcement path, not a noop, and it is fail closed: admission requires
+the effective policy to set `allowUploads` (or `allowJobs`) explicitly
+to true, so an empty or silent config denies everything. FT6 later
+swaps in the metered implementation and owns end to end verification;
+the metered implementation must keep the fail closed posture.
 
 ## 4. Telemetry streams (FT4 owns)
 

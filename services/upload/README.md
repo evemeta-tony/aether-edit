@@ -11,8 +11,11 @@ claims `sub` and `workspaceId`). Full OIDC issuer wiring is FT-6/S5
 scope.
 
 - `POST /v1/uploads` with `{"filename","sizeBytes","mime"}` creates a
-  session after `QuotaChecker.CheckUploadSession` passes. Returns
-  `uploadId` (uuidv7), `chunkSizeBytes` (64 MiB), `chunkCount`.
+  session after `QuotaChecker.CheckUploadSession` passes. The quota
+  check is fail closed: the mounted config must explicitly set
+  `allowUploads: true` for the workspace (or in `defaults`) or creation
+  is denied. Returns `uploadId` (uuidv7), `chunkSizeBytes` (64 MiB),
+  `chunkCount`.
 - `GET /v1/uploads/{id}` returns the session and chunk map (the resume
   query).
 - `PUT /v1/uploads/{id}/chunks/{n}` uploads one chunk body. Headers:
@@ -28,6 +31,25 @@ scope.
   metering events over JetStream, and returns `objectKey` and `sha256`.
   Safe to retry: publication failures leave the session ASSEMBLED.
 - `DELETE /v1/uploads/{id}` cancels and garbage collects parts.
+
+### Integrity guarantee boundary
+
+Per chunk `X-Chunk-Sha256` verification protects the transport of each
+chunk at write time. Part ETags recorded then are passed through to the
+multipart complete without a second per part comparison against stored
+bytes. The authoritative integrity gate is the whole object sha256,
+recomputed by streaming the assembled object at complete time; a
+corrupted or resized part fails there. Downstream consumers (FT-3)
+must rely on the minted whole object hash, not on any per part
+guarantee.
+
+### Backpressure scope
+
+The inflight bytes ceiling gates concurrent chunk bodies at admission
+time; each body releases its reservation when its request finishes. A
+single threaded client under the ceiling never trips it. Sustained
+throughput behavior under real load is measured at OVH acceptance
+(R10).
 
 ## Configuration (environment)
 

@@ -27,6 +27,8 @@ type fakeS3 struct {
 	uploads     map[string]*fakeMultipart
 	nextUpload  int
 	partPuts    int // total UploadPart calls, for idempotency tests
+	completes   int // total CompleteMultipartUpload calls
+	copies      int // total CopyObject calls
 }
 
 type fakeMultipart struct {
@@ -90,6 +92,7 @@ func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 	case r.Method == http.MethodPost && q.Has("uploadId"):
+		f.completes++
 		up, ok := f.uploads[q.Get("uploadId")]
 		if !ok || up.key != key {
 			f.errXML(w, http.StatusNotFound, "NoSuchUpload")
@@ -135,6 +138,7 @@ func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 
 	case r.Method == http.MethodPut && r.Header.Get("x-amz-copy-source") != "":
+		f.copies++
 		src, err := url.PathUnescape(r.Header.Get("x-amz-copy-source"))
 		if err != nil {
 			f.errXML(w, http.StatusBadRequest, "InvalidRequest")
@@ -198,6 +202,18 @@ func (f *fakeS3) partPutCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.partPuts
+}
+
+func (f *fakeS3) completeCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.completes
+}
+
+func (f *fakeS3) copyCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.copies
 }
 
 func (f *fakeS3) errXML(w http.ResponseWriter, status int, code string) {

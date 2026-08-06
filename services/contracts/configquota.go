@@ -28,9 +28,11 @@ type WorkspaceQuota struct {
 	// MaxUploadBytes caps the declared size of a single upload
 	// session. Zero means uploads are disabled for the workspace.
 	MaxUploadBytes *int64 `yaml:"maxUploadBytes" json:"maxUploadBytes"`
-	// AllowUploads gates upload session creation entirely.
+	// AllowUploads gates upload session creation entirely. Left unset
+	// after layering over the defaults, uploads are denied (fail closed).
 	AllowUploads *bool `yaml:"allowUploads" json:"allowUploads"`
-	// AllowJobs gates job admission.
+	// AllowJobs gates job admission. Left unset after layering over the
+	// defaults, jobs are denied (fail closed).
 	AllowJobs *bool `yaml:"allowJobs" json:"allowJobs"`
 }
 
@@ -47,6 +49,11 @@ type QuotaConfigFile struct {
 // workspace limits from a mounted YAML or JSON config file and enforces
 // them. Denials carry a typed reason. FT6 later swaps in the metered
 // implementation behind the same interface.
+//
+// ConfigQuota is fail closed (Janus V-5): a workspace is admitted only
+// when the effective policy explicitly allows it. If the layered policy
+// leaves AllowUploads (or AllowJobs) unset, the check denies. An empty
+// config therefore denies everything.
 type ConfigQuota struct {
 	cfg QuotaConfigFile
 }
@@ -135,7 +142,9 @@ func (c *ConfigQuota) CheckUploadSession(ctx context.Context, workspaceID string
 	if c.cfg.DenyUnknownWorkspaces && !known {
 		return QuotaDecision{Allowed: false, Reason: ReasonWorkspaceUnknown}, nil
 	}
-	if eff.AllowUploads != nil && !*eff.AllowUploads {
+	// Fail closed: uploads are admitted only when the effective policy
+	// explicitly allows them. A silent policy denies.
+	if eff.AllowUploads == nil || !*eff.AllowUploads {
 		return QuotaDecision{Allowed: false, Reason: ReasonUploadsDisabled}, nil
 	}
 	if eff.MaxUploadBytes != nil {
@@ -158,7 +167,9 @@ func (c *ConfigQuota) CheckJobAdmission(ctx context.Context, workspaceID string)
 	if c.cfg.DenyUnknownWorkspaces && !known {
 		return QuotaDecision{Allowed: false, Reason: ReasonWorkspaceUnknown}, nil
 	}
-	if eff.AllowJobs != nil && !*eff.AllowJobs {
+	// Fail closed: jobs are admitted only when the effective policy
+	// explicitly allows them. A silent policy denies.
+	if eff.AllowJobs == nil || !*eff.AllowJobs {
 		return QuotaDecision{Allowed: false, Reason: ReasonJobsDisabled}, nil
 	}
 	return QuotaDecision{Allowed: true}, nil

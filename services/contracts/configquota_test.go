@@ -116,6 +116,46 @@ func TestConfigQuotaJSONAndUnknownWorkspacePolicy(t *testing.T) {
 	}
 }
 
+func TestConfigQuotaFailClosedByDefault(t *testing.T) {
+	// Janus V-5: an empty or silent policy denies. Admission requires an
+	// explicit allow after layering the workspace entry over defaults.
+	q, err := NewConfigQuota(QuotaConfigFile{})
+	if err != nil {
+		t.Fatalf("NewConfigQuota(empty): %v", err)
+	}
+	ctx := context.Background()
+
+	d, err := q.CheckUploadSession(ctx, "ws-any", 1)
+	if err != nil {
+		t.Fatalf("CheckUploadSession: %v", err)
+	}
+	if d.Allowed || d.Reason != ReasonUploadsDisabled {
+		t.Fatalf("empty config upload: got %+v, want denied with %q", d, ReasonUploadsDisabled)
+	}
+
+	d, err = q.CheckJobAdmission(ctx, "ws-any")
+	if err != nil {
+		t.Fatalf("CheckJobAdmission: %v", err)
+	}
+	if d.Allowed || d.Reason != ReasonJobsDisabled {
+		t.Fatalf("empty config job: got %+v, want denied with %q", d, ReasonJobsDisabled)
+	}
+
+	// A size limit alone is not an allow; the explicit flag is required.
+	limit := int64(1 << 20)
+	q, err = NewConfigQuota(QuotaConfigFile{Defaults: WorkspaceQuota{MaxUploadBytes: &limit}})
+	if err != nil {
+		t.Fatalf("NewConfigQuota(limit only): %v", err)
+	}
+	d, err = q.CheckUploadSession(ctx, "ws-any", 1)
+	if err != nil {
+		t.Fatalf("CheckUploadSession: %v", err)
+	}
+	if d.Allowed || d.Reason != ReasonUploadsDisabled {
+		t.Fatalf("limit only upload: got %+v, want denied with %q", d, ReasonUploadsDisabled)
+	}
+}
+
 func TestConfigQuotaRejectsBadConfig(t *testing.T) {
 	dir := t.TempDir()
 

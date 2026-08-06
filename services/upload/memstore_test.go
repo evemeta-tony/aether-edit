@@ -17,6 +17,8 @@ type MemStore struct {
 	mu       sync.Mutex
 	sessions map[uuid.UUID]*Session
 	chunks   map[uuid.UUID][]Chunk
+	// failSetState injects a SetSessionState failure for rollback tests.
+	failSetState bool
 }
 
 var _ Store = (*MemStore)(nil)
@@ -122,10 +124,31 @@ func (m *MemStore) SetSessionAssembled(ctx context.Context, id uuid.UUID, sha256
 func (m *MemStore) SetSessionState(ctx context.Context, id uuid.UUID, state string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.failSetState {
+		return fmt.Errorf("injected SetSessionState failure")
+	}
 	s, ok := m.sessions[id]
 	if !ok {
 		return ErrNotFound
 	}
 	s.State = state
 	return nil
+}
+
+func (m *MemStore) setFailSetState(fail bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.failSetState = fail
+}
+
+// allSessions returns a snapshot of every persisted session, for tests
+// that need to inspect state without knowing the session id up front.
+func (m *MemStore) allSessions() []Session {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]Session, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		out = append(out, *s)
+	}
+	return out
 }

@@ -202,8 +202,19 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.publishMetering(r.Context(), id, contracts.MeteringUploadSessionCreated, &req.SizeBytes, ""); err != nil {
 		log.Error("metering publish failed, rolling session back", "err", err)
-		_ = s.blobs.AbortMultipart(r.Context(), stagingKey, s3UploadID)
-		_ = s.store.SetSessionState(r.Context(), sessionID, SessionCancelled)
+		// Roll back on a context that survives client disconnect, and
+		// persist CANCELLED before touching the multipart. Invariant: a
+		// session recorded ACTIVE always has a live multipart, so a
+		// failed state write leaves the session usable (or cancellable)
+		// rather than stuck ACTIVE over an aborted upload.
+		rbCtx := context.WithoutCancel(r.Context())
+		if stateErr := s.store.SetSessionState(rbCtx, sessionID, SessionCancelled); stateErr != nil {
+			log.Error("rollback: could not cancel session; leaving multipart intact for cancel or reconciliation",
+				"uploadId", sessionID, "s3UploadId", s3UploadID, "err", stateErr)
+		} else if abortErr := s.blobs.AbortMultipart(rbCtx, stagingKey, s3UploadID); abortErr != nil {
+			log.Error("rollback: abort multipart failed; orphaned multipart needs storage GC",
+				"uploadId", sessionID, "s3UploadId", s3UploadID, "err", abortErr)
+		}
 		writeError(w, http.StatusServiceUnavailable, "event_publish_failed", "could not emit metering event; retry")
 		return
 	}
@@ -545,6 +556,12 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "session_completed", "completed sessions cannot be cancelled")
 		return
 	case SessionCancelled:
+		// Idempotent, but re run the multipart abort best effort so a
+		// cancellation whose earlier abort failed still garbage collects
+		// (AbortMultipart treats a missing upload as already aborted).
+		if err := s.blobs.AbortMultipart(r.Context(), sess.StagingKey, sess.S3UploadID); err != nil {
+			log.Warn("re abort multipart failed", "uploadId", sess.ID, "err", err)
+		}
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

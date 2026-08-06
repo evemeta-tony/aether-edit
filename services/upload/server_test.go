@@ -97,7 +97,7 @@ func withInflightCeiling(n int64) envOption {
 func newTestEnv(t *testing.T, opts ...envOption) *testEnv {
 	t.Helper()
 	cfg := &envConfig{
-		quotaYAML:      "defaults:\n  maxUploadBytes: 1073741824\n",
+		quotaYAML:      "defaults:\n  allowUploads: true\n  maxUploadBytes: 1073741824\n",
 		inflightCeil:   1 << 30,
 		maxObjectBytes: 1 << 30,
 	}
@@ -355,7 +355,9 @@ func TestResumeAfterRestart(t *testing.T) {
 	}
 
 	// Simulate a service restart: a brand new Server over the same
-	// persisted store and object storage.
+	// persisted store and object storage. The empty quota config is fail
+	// closed (V-5): it denies new session creation, and this test only
+	// resumes the session created before the restart.
 	quota, err := contracts.NewConfigQuota(contracts.QuotaConfigFile{})
 	if err != nil {
 		t.Fatal(err)
@@ -364,6 +366,15 @@ func TestResumeAfterRestart(t *testing.T) {
 	env.api.Close()
 	env.api = httptest.NewServer(restarted.Routes())
 	t.Cleanup(env.api.Close)
+
+	// Prove the fail closed posture: a create against the empty config
+	// is denied.
+	denyBody, _ := json.Marshal(map[string]any{
+		"filename": "denied.mov", "sizeBytes": 10, "mime": "video/quicktime",
+	})
+	if resp, body := env.do(http.MethodPost, "/v1/uploads", denyBody, nil); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("create under empty quota config: status %d body %s, want 403", resp.StatusCode, body)
+	}
 
 	// The resume query reflects the persisted chunk map.
 	resp, body := env.do(http.MethodGet, "/v1/uploads/"+uploadID, nil, nil)
@@ -486,7 +497,7 @@ func TestCompleteWithMissingChunkRejected(t *testing.T) {
 
 func TestQuotaDenial(t *testing.T) {
 	env := newTestEnv(t, withQuotaYAML(
-		"defaults:\n  maxUploadBytes: 1073741824\nworkspaces:\n  ws-1:\n    maxUploadBytes: 100\n"))
+		"defaults:\n  allowUploads: true\n  maxUploadBytes: 1073741824\nworkspaces:\n  ws-1:\n    maxUploadBytes: 100\n"))
 
 	body, _ := json.Marshal(map[string]any{
 		"filename":  "big.mov",
@@ -577,6 +588,8 @@ func TestCompleteRetriesAfterPublishOutage(t *testing.T) {
 	if state.State != SessionAssembled {
 		t.Fatalf("state = %s, want ASSEMBLED", state.State)
 	}
+	completesAfterOutage := env.fake.completeCallCount()
+	copiesAfterOutage := env.fake.copyCallCount()
 
 	env.pub.setFail(false)
 	resp, body = env.do(http.MethodPost, "/v1/uploads/"+uploadID+"/complete", nil, nil)
@@ -585,6 +598,94 @@ func TestCompleteRetriesAfterPublishOutage(t *testing.T) {
 	}
 	if len(env.pub.bySubject(contracts.SubjectUploadLanded)) != 1 {
 		t.Fatal("landed event missing after retry")
+	}
+	// The retry entered at ASSEMBLED and must not redo assembly work: no
+	// further multipart completes and no further server side copies.
+	if got := env.fake.completeCallCount(); got != completesAfterOutage {
+		t.Fatalf("retry re ran multipart complete: %d calls, want %d", got, completesAfterOutage)
+	}
+	if got := env.fake.copyCallCount(); got != copiesAfterOutage {
+		t.Fatalf("retry re ran server side copy: %d calls, want %d", got, copiesAfterOutage)
+	}
+}
+
+func TestCreateRollsBackWhenMeteringPublishFails(t *testing.T) {
+	env := newTestEnv(t)
+	env.pub.setFail(true)
+
+	body, _ := json.Marshal(map[string]any{
+		"filename":  "movie.mov",
+		"sizeBytes": int64(testChunkSize),
+		"mime":      "video/quicktime",
+	})
+	resp, respBody := env.do(http.MethodPost, "/v1/uploads", body, nil)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("create during publish outage: status %d body %s, want 503", resp.StatusCode, respBody)
+	}
+
+	// The rollback persists CANCELLED and aborts the multipart.
+	if env.fake.uploadCount() != 0 {
+		t.Fatalf("multipart uploads = %d, want 0 (aborted by rollback)", env.fake.uploadCount())
+	}
+	sessions := env.store.(*MemStore).allSessions()
+	if len(sessions) != 1 {
+		t.Fatalf("sessions = %d, want 1", len(sessions))
+	}
+	if sessions[0].State != SessionCancelled {
+		t.Fatalf("session state = %s, want CANCELLED", sessions[0].State)
+	}
+
+	// A chunk PUT against the rolled back session conflicts instead of
+	// looping through RETRY against a dead multipart.
+	chunk := randomBytes(t, testChunkSize)
+	if resp, _ := env.putChunk(sessions[0].ID.String(), 0, chunk); resp.StatusCode != http.StatusConflict {
+		t.Fatalf("chunk PUT after rollback: status %d, want 409", resp.StatusCode)
+	}
+
+	// Service recovers once publishing does.
+	env.pub.setFail(false)
+	uploadID, _ := env.createSession(int64(testChunkSize))
+	if uploadID == "" {
+		t.Fatal("create after outage recovery failed")
+	}
+}
+
+func TestCreateRollbackKeepsMultipartWhenStateWriteFails(t *testing.T) {
+	// Invariant: a session recorded ACTIVE always has a live multipart.
+	// If the CANCELLED write fails during rollback, the multipart must
+	// be left intact so the session stays cancellable, never ACTIVE over
+	// an aborted upload.
+	env := newTestEnv(t)
+	mem := env.store.(*MemStore)
+	env.pub.setFail(true)
+	mem.setFailSetState(true)
+
+	body, _ := json.Marshal(map[string]any{
+		"filename":  "movie.mov",
+		"sizeBytes": int64(testChunkSize),
+		"mime":      "video/quicktime",
+	})
+	resp, respBody := env.do(http.MethodPost, "/v1/uploads", body, nil)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("create during dual outage: status %d body %s, want 503", resp.StatusCode, respBody)
+	}
+	if env.fake.uploadCount() != 1 {
+		t.Fatalf("multipart uploads = %d, want 1 (kept for the ACTIVE session)", env.fake.uploadCount())
+	}
+	sessions := mem.allSessions()
+	if len(sessions) != 1 || sessions[0].State != SessionActive {
+		t.Fatalf("sessions = %+v, want one ACTIVE session", sessions)
+	}
+
+	// Once the store recovers, DELETE cancels and garbage collects.
+	mem.setFailSetState(false)
+	env.pub.setFail(false)
+	resp, respBody = env.do(http.MethodDelete, "/v1/uploads/"+sessions[0].ID.String(), nil, nil)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("cancel after recovery: status %d body %s", resp.StatusCode, respBody)
+	}
+	if env.fake.uploadCount() != 0 {
+		t.Fatalf("multipart uploads = %d, want 0 after cancel", env.fake.uploadCount())
 	}
 }
 
