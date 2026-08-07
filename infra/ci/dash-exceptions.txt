@@ -3,8 +3,5 @@
 # em/en dash check (check-dashes.sh). Reserved for third-party trees carried
 # verbatim; first-party files are never exempt.
 docs/design/ui_kits/**
-# Design source of record carried verbatim (sampled from the Aether marketing
-# site per their own headers): the em dashes are in the upstream token files,
-# not authored here. These are the FT-5 design tokens the console imports.
 docs/design/colors_and_type.css
 docs/design/tokens.json

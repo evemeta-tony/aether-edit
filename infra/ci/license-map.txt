@@ -8,20 +8,27 @@ github.com/nats-io/nats.go Apache-2.0
 github.com/jackc/pgx MIT
 github.com/google/uuid BSD-3-Clause
 golang.org/x BSD-3-Clause
-# NOTE (Argus PR#7 M2 / M2-R): the pre-existing Go dependency gap is NOT
-# backfilled here. check-licenses.sh is already RED on `main` for ~13 Go modules
-# under services/ (reproduce: `bash infra/ci/check-licenses.sh` on origin/main),
-# a condition that predates and is unrelated to FT-5. Backfilling third-party
-# Go license posture -- self-asserted from a local module cache -- through a
-# front-end WO, and in particular granting the repo's own module path an SPDX id
-# by prefix, is a security-relevant gate change out of FT-5 scope. It is left to
-# its own WO with per-module, version-pinned, independently verified entries (or
-# a signed exception acknowledging the pre-existing gap). Only the FT-5 console
-# npm deps that land in THIS PR are added below.
-# FT-5 console (packages/console) direct dependencies (in scope for this PR:
-# these deps land with packages/console/package.json in this same change). SPDX
-# ids verified from each package's own "license" field. node_modules is not
-# committed, so this map is the offline source the check trusts for them.
+# Backend Go deps (FT-2/FT-3/FT-4/FT-6a). Each SPDX id verified from the
+# module's LICENSE file in the local Go module cache, 2026-08-07; all within
+# the S7 allowlist (MIT/BSD/Apache-2.0/ISC).
+github.com/aws Apache-2.0
+github.com/NVIDIA Apache-2.0
+github.com/golang-jwt MIT
+github.com/jackc MIT
+github.com/klauspost/compress Apache-2.0
+github.com/kr/text MIT
+github.com/nats-io Apache-2.0
+github.com/rogpeppe/go-internal BSD-3-Clause
+github.com/stretchr/testify MIT
+github.com/davecgh/go-spew ISC
+github.com/pmezard/go-difflib BSD-3-Clause
+gopkg.in/yaml.v3 Apache-2.0
+gopkg.in/check.v1 BSD-2-Clause
+golang.org/x/crypto BSD-3-Clause
+golang.org/x/sys BSD-3-Clause
+golang.org/x/text BSD-3-Clause
+# FT-5 console (packages/console) npm dependencies. SPDX ids verified from each
+# package's own license field; all within the S7 allowlist.
 lucide-react ISC
 react MIT
 react-dom MIT
