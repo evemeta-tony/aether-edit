@@ -5,7 +5,7 @@
 // state plus a connection status so panels can show honest loading/empty/error
 // states (R10) instead of fabricated numbers on a dead stream.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   streamHardware,
   streamJobs,
@@ -51,19 +51,23 @@ export function useJobsStream(): JobsStreamState {
   const [aggregate, setAggregate] = useState<JobAggregate | null>(null);
   const [conn, setConn] = useState<SseStatus>("connecting");
   const [transitionTick, setTick] = useState(0);
-  const progressRef = useRef<Map<string, JobStreamEvent>>(new Map());
-  const [, force] = useState(0);
+  // progress is held in state and replaced with a FRESH Map on every update
+  // (never mutated in place). Emitting a new identity keeps it safe to memoize
+  // a consumer on `progress`: a stable-identity mutated Map would silently
+  // freeze per-row progress under React referential-equality checks.
+  const [progress, setProgress] = useState<Map<string, JobStreamEvent>>(new Map());
 
   useEffect(() => {
     const c = streamJobs({
       onJob: (j) => {
-        progressRef.current.set(j.jobId, j);
-        // A terminal state removes the job from the active progress set.
-        if (j.state === "completed" || j.state === "failed") {
-          progressRef.current.delete(j.jobId);
-          setTick((t) => t + 1);
-        }
-        force((n) => n + 1);
+        setProgress((prev) => {
+          const next = new Map(prev);
+          // A terminal state removes the job from the active progress set.
+          if (j.state === "completed" || j.state === "failed") next.delete(j.jobId);
+          else next.set(j.jobId, j);
+          return next;
+        });
+        if (j.state === "completed" || j.state === "failed") setTick((t) => t + 1);
       },
       onAggregate: setAggregate,
       onConnState: setConn,
@@ -71,7 +75,7 @@ export function useJobsStream(): JobsStreamState {
     return () => c.close();
   }, []);
 
-  return { progress: progressRef.current, aggregate, conn, transitionTick };
+  return { progress, aggregate, conn, transitionTick };
 }
 
 export interface LogsState {

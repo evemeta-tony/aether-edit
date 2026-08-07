@@ -78,8 +78,10 @@ export function connectSse(url: string, handlers: SseHandlers): SseConnection {
             closed = true;
             return;
           }
-          attempt += 1;
-          await sleep(backoffMs(), controller.signal);
+          // A successful token refresh is a healthy, expected event (normal
+          // access-token expiry), not a transport failure. Do NOT grow the
+          // transport backoff exponent for it: reconnect immediately with the
+          // fresh token, leaving `attempt` for genuine transport errors.
           continue;
         }
         if (!res.ok || !res.body) {
