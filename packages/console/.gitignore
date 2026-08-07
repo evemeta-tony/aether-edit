@@ -1,0 +1,5 @@
+# packages/console/.gitignore
+node_modules/
+dist/
+*.local
+.vite/
