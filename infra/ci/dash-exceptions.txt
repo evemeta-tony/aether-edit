@@ -3,3 +3,5 @@
 # em/en dash check (check-dashes.sh). Reserved for third-party trees carried
 # verbatim; first-party files are never exempt.
 docs/design/ui_kits/**
+docs/design/colors_and_type.css
+docs/design/tokens.json

@@ -10,8 +10,13 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-if [ -z "$(git ls-files -- '*.ts' '*.tsx' '*.js' '*.jsx')" ]; then
-  echo "lint-js: nothing to lint yet (no .ts/.tsx/.js/.jsx files tracked); check is armed"
+# The verbatim third-party design tree (docs/design/) carries reference .jsx
+# that is not a linted package; exclude it here, matching its exemption from
+# the first-line and dash checks. First-party JS/TS is never excluded.
+js_sources() { git ls-files -- '*.ts' '*.tsx' '*.js' '*.jsx' | grep -vE '^docs/design/' || true; }
+
+if [ -z "$(js_sources)" ]; then
+  echo "lint-js: nothing to lint yet (no first-party .ts/.tsx/.js/.jsx files tracked); check is armed"
   exit 0
 fi
 
