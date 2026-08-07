@@ -283,6 +283,11 @@ export class UploadTask {
   // finish runs POST complete: verify + landed publish, then move to landed.
   private async finish(): Promise<void> {
     if (this.state === "verifying" || this.state === "landed") return;
+    // INVARIANT (double-complete guard): the guard check above and this
+    // assignment must stay in the same synchronous turn. On a single JS thread
+    // no second finish() can slip between them, so finish() is single-entry.
+    // Do NOT insert an `await` before this line -- doing so reopens a
+    // double-complete race under overlapping worker returns (Argus S-F10).
     this.state = "verifying";
     this.emit();
     try {
@@ -313,6 +318,10 @@ export class UploadTask {
     this.state = "error";
     this.errorMessage = message;
     this.revertInflight();
+    // Clear the trailing rate window so the parked engine does not keep showing
+    // a stale non-zero throughput until the samples age out (matches pause();
+    // Argus S-F11).
+    this.rateSamples = [];
     this.emit();
     setTimeout(() => {
       if (this.state === "error" && !this.disposed) void this.resume();

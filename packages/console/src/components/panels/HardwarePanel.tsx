@@ -21,7 +21,8 @@ export function HardwarePanel({ hardware, encodingJobs }: { hardware: HardwareSt
   const util = s?.gpuUtilPct ?? null;
   const vramUsed = s?.vramUsedMB ?? null;
   const vramTotal = s?.vramTotalMB ?? null;
-  const vramPct = vramUsed !== null && vramTotal ? (vramUsed / vramTotal) * 100 : 0;
+  const vramKnown = vramUsed !== null && vramTotal !== null && vramTotal > 0;
+  const vramPct = vramKnown ? (vramUsed / vramTotal) * 100 : 0;
 
   const statusLabel =
     hardware.conn !== "open"
@@ -62,7 +63,15 @@ export function HardwarePanel({ hardware, encodingJobs }: { hardware: HardwareSt
                 : `${(vramUsed / 1024).toFixed(1)} / ${(vramTotal / 1024).toFixed(1)} GB`}
             </span>
           </div>
-          <Meter pct={vramPct} color={gpuOk ? "var(--viz-2)" : "var(--idle)"} />
+          {vramKnown ? (
+            // Only render a filled meter when VRAM is actually measured. A 0%
+            // fill on absent VRAM would read as "0% used", a fabricated zero in
+            // the class R10(b) forbids -- the readout above already shows the em
+            // dash. When unknown, show the empty idle track with no fill.
+            <Meter pct={vramPct} color={gpuOk ? "var(--viz-2)" : "var(--idle)"} />
+          ) : (
+            <div style={{ height: 3, background: "var(--bg-input)", borderRadius: 1 }} />
+          )}
         </div>
         <div style={{ display: "flex", gap: 18 }}>
           <Read value={fmtNum(s?.junctionC ?? null, 0)} unit="°C" label="Junction" size={17} />
