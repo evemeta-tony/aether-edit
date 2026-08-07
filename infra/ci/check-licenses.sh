@@ -109,6 +109,12 @@ check_go_mod() {
   local manifest="$1" dep
   while IFS= read -r dep; do
     [ -n "$dep" ] || continue
+    # First-party: the repo's own modules (resolved via in-repo replace
+    # directives) are not third-party dependencies and carry no external
+    # license to check. Skip them rather than mapping a license.
+    case "$dep" in
+      github.com/evemeta-tony/aether-edit | github.com/evemeta-tony/aether-edit/*) continue ;;
+    esac
     judge "$dep" "$(map_license "$dep" || true)" "$manifest"
   done < <(awk '
     /^require \(/ { inblock = 1; next }

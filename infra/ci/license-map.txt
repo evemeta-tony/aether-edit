@@ -8,3 +8,22 @@ github.com/nats-io/nats.go Apache-2.0
 github.com/jackc/pgx MIT
 github.com/google/uuid BSD-3-Clause
 golang.org/x BSD-3-Clause
+# Backend Go deps (FT-2/FT-3/FT-4/FT-6a). Each SPDX id verified from the
+# module's LICENSE file in the local Go module cache, 2026-08-07; all within
+# the S7 allowlist (MIT/BSD/Apache-2.0/ISC).
+github.com/aws Apache-2.0
+github.com/NVIDIA Apache-2.0
+github.com/golang-jwt MIT
+github.com/jackc MIT
+github.com/klauspost/compress Apache-2.0
+github.com/kr/text MIT
+github.com/nats-io Apache-2.0
+github.com/rogpeppe/go-internal BSD-3-Clause
+github.com/stretchr/testify MIT
+github.com/davecgh/go-spew ISC
+github.com/pmezard/go-difflib BSD-3-Clause
+gopkg.in/yaml.v3 Apache-2.0
+gopkg.in/check.v1 BSD-2-Clause
+golang.org/x/crypto BSD-3-Clause
+golang.org/x/sys BSD-3-Clause
+golang.org/x/text BSD-3-Clause
