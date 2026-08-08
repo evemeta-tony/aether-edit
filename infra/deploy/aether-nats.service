@@ -1,0 +1,20 @@
+# /etc/systemd/system/aether-nats.service
+# Dedicated NATS JetStream broker for aether-edit (loopback 127.0.0.1:9214).
+[Unit]
+Description=aether-edit NATS JetStream (dedicated broker)
+After=network.target
+
+[Service]
+Type=simple
+User=aether-edit
+Group=aether-edit
+ExecStart=/usr/local/bin/nats-server -c /etc/aether-edit/aether-nats.conf
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aether-edit/nats
+
+[Install]
+WantedBy=multi-user.target

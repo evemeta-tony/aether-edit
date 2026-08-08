@@ -1,0 +1,19 @@
+# /etc/systemd/system/aether-telemetry.service
+[Unit]
+Description=aether-edit FT-4 telemetry service
+After=network.target postgresql.service aether-nats.service
+Wants=aether-nats.service
+[Service]
+Type=simple
+User=aether-edit
+Group=aether-edit
+EnvironmentFile=/etc/aether-edit/telemetry.env
+ExecStart=/opt/aether-edit/bin/telemetry
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aether-edit
+[Install]
+WantedBy=multi-user.target
