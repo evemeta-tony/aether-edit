@@ -21,7 +21,6 @@ Google OIDC is the single login gate. ffmpeg is the C-5 LGPL+NVENC build from
 build-ffmpeg.sh installed at /opt/aether-edit/ffmpeg.
 
 Quota configs diverge by service (upload uses the contracts format,
-orchestrator its own maxActiveJobs format) - flagged to Ivo to unify.
 
 ## Deploy posture, honestly stated (Argus PR#11)
 
