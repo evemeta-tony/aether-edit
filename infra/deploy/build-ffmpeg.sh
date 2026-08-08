@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# infra/deploy/build-ffmpeg.sh
 set -euo pipefail
 BUILD=/opt/aether-edit/ffmpeg-build; sudo mkdir -p "$BUILD"; sudo chown "$(id -u)":"$(id -g)" "$BUILD"
 log="$BUILD/build.log"; exec > >(tee "$log") 2>&1
