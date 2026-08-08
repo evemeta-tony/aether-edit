@@ -17,14 +17,20 @@ deferred to a later work order.
 | `ORCH_HTTP_ADDR` | no | `127.0.0.1:5203` | API listen address |
 | `ORCH_DATABASE_URL` | yes | | Postgres URL |
 | `ORCH_NATS_URL` | yes | | NATS server URL |
-| `ORCH_OBJECT_STORE_ROOT` | yes | | Filesystem object store root shared with FT-2 on this node |
-| `ORCH_STAGING_DIR` | no | `/var/tmp/aether-orchestrator` | Encode staging area |
+| `ORCH_S3_ENDPOINT` | yes | | OVH S3 (S3 compatible) endpoint URL, shared with FT-2 |
+| `ORCH_S3_REGION` | yes | | S3 region |
+| `ORCH_S3_BUCKET` | yes | | S3 bucket holding sources and outputs |
+| `ORCH_S3_ACCESS_KEY` | yes | | S3 access key (env only, never in repo) |
+| `ORCH_S3_SECRET_KEY` | yes | | S3 secret key (env only, never in repo) |
+| `ORCH_S3_PATH_STYLE` | no | `false` | Use path style addressing |
+| `ORCH_SCRATCH_DIR` | no | `/var/tmp/aether-orchestrator` | Local scratch for downloaded sources and staged outputs (not the object store) |
 | `ORCH_FFMPEG_PATH` | yes | | AM-5 built ffmpeg binary |
 | `ORCH_FFPROBE_PATH` | yes | | AM-5 built ffprobe binary |
 | `ORCH_SCHEDULER_SLOTS` | no | `3` | Concurrent encode slots |
 | `ORCH_SCHEDULER_POLL_INTERVAL` | no | `2s` | Idle queue poll period |
 | `ORCH_QUOTA_CONFIG` | yes | | Mounted quota limits JSON file |
-| `ORCH_JWT_SECRET` | yes | | HS256 bearer token secret (env only, never in repo) |
+| `ORCH_JWT_SECRET` | yes | | base64url (RawURLEncoding, no padding) HMAC key; set to the SAME string as the tenancy signer TENANCY_AUTH_HS256_KEY (env only, never in repo) |
+| `ORCH_AUTOCREATE_JOBS` | no | `true` | Auto create a job on the landed object event using the workspace default preset |
 
 Startup license gate: the service runs `ffmpeg -hide_banner -buildconf` and
 parses the output. If the build advertises `--enable-gpl` or
@@ -115,11 +121,16 @@ edited preset when they start. This is the documented API contract.
 ## Events
 
 - Consumes `aether.ft.upload.landed.v1` (frozen contract 1) via a durable
-  JetStream consumer and auto-probes each landed object with ffprobe
-  (container, codecs, resolution, chroma subsampling, source bitrate,
-  duration, and the video/audio/subtitle stream inventory), persisting the
-  media info with the source. Malformed events are terminated; transient
-  failures are NAKed with delay.
+  JetStream consumer. Each landed object is downloaded from the OVH S3 store
+  to a local scratch file and auto-probed with ffprobe (container, codecs,
+  resolution, chroma subsampling, source bitrate, duration, and the
+  video/audio/subtitle stream inventory), persisting the media info with the
+  source. When `ORCH_AUTOCREATE_JOBS` is true (the default) the consumer then
+  auto-creates a queued transcode job for the landed source using the
+  workspace default preset (the oldest preset the workspace defined) and emits
+  the `job_queued` metering event; a workspace with no preset is logged and
+  the event is acked (a job can be created explicitly later). Malformed events
+  are terminated; transient failures are NAKed with delay.
 - Emits `aether.ft.metering.v1` (frozen contract 2): `job_queued`,
   `job_started`, `job_completed` (with `encodeSeconds`), `job_failed`.
 - Publishes job state transitions and live progress on
@@ -132,8 +143,10 @@ edited preset when they start. This is the documented API contract.
 
 Each ladder rung encodes with the AM-5 NVENC encoder mapped from the
 codec-neutral preset (`h264 -> h264_nvenc`, `hevc -> hevc_nvenc`,
-`av1 -> av1_nvenc`), staged locally, then stored under
-`outputs/<workspaceId>/<jobId>/<rungName>/` in the object store. Progress is
+`av1 -> av1_nvenc`), staged in the local scratch directory, then uploaded to
+`outputs/<workspaceId>/<jobId>/<rungName>/` in the OVH S3 object store. The
+source is read from `assets/<workspaceId>/sha256/<hex64>` in the same bucket.
+Progress is
 parsed from the ffmpeg `-progress` pipe (stdout, never argv). HLS uses fmp4
 segments; DASH emits a manifest plus segment files; webm audio is Opus, all
 other containers use AAC.

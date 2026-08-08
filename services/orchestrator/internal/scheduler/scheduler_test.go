@@ -9,6 +9,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -106,9 +107,15 @@ func (f *fakeStore) completedCount() int {
 
 type fakeObjects struct{}
 
-func (fakeObjects) Path(key string) (string, error) { return "/fake/" + key, nil }
-func (fakeObjects) Exists(string) (bool, error)     { return true, nil }
-func (fakeObjects) PutDir(prefix, _ string) ([]string, error) {
+func (fakeObjects) Exists(context.Context, string) (bool, error) { return true, nil }
+
+func (fakeObjects) Download(_ context.Context, _, dstPath string) error {
+	// Write a placeholder local scratch file so the engine has a real input
+	// path to receive; the fake engine ignores the contents.
+	return os.WriteFile(dstPath, []byte("source"), 0o644)
+}
+
+func (fakeObjects) PutDir(_ context.Context, prefix, _ string) ([]string, error) {
 	return []string{prefix + "/artifact.mp4"}, nil
 }
 

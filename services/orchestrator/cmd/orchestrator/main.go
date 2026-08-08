@@ -72,11 +72,12 @@ func run(log *slog.Logger) error {
 	}
 	defer st.Close()
 
-	objects, err := objstore.New(cfg.ObjectStoreRoot)
+	objects, err := objstore.NewS3(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket,
+		cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3PathStyle)
 	if err != nil {
 		return err
 	}
-	staging, err := scheduler.StagingRoot(cfg.StagingDir)
+	scratch, err := scheduler.StagingRoot(cfg.ScratchDir)
 	if err != nil {
 		return err
 	}
@@ -104,13 +105,16 @@ func run(log *slog.Logger) error {
 	sched, err := scheduler.New(scheduler.Config{
 		Slots:        cfg.SchedulerSlots,
 		PollInterval: cfg.SchedulerPollInterval,
-		StagingDir:   staging,
+		StagingDir:   scratch,
 	}, st, objects, eng, progress, meter, log)
 	if err != nil {
 		return err
 	}
 
-	landed := consumer.New(st, objects, eng, log)
+	landed := consumer.New(consumer.Config{
+		ScratchDir:     scratch,
+		AutoCreateJobs: cfg.AutoCreateJobs,
+	}, st, objects, eng, meter, progress, sched, log)
 	stopConsumer, err := landed.Start(ctx, conn, landedStream)
 	if err != nil {
 		return err

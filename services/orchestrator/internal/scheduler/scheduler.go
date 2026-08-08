@@ -34,11 +34,14 @@ type Store interface {
 	MarkFailed(ctx context.Context, id string, class jobs.ErrorClass, msg string) (jobs.Job, error)
 }
 
-// ObjectStore is the object storage surface the scheduler needs.
+// ObjectStore is the object storage surface the scheduler needs. It is
+// backed by the OVH S3 store: the source object is Downloaded to a local
+// scratch file (ffmpeg reads local files, not S3 URLs) and encode outputs
+// are uploaded from a local staging directory with PutDir.
 type ObjectStore interface {
-	Path(key string) (string, error)
-	Exists(key string) (bool, error)
-	PutDir(keyPrefix, srcDir string) ([]string, error)
+	Exists(ctx context.Context, key string) (bool, error)
+	Download(ctx context.Context, key, dstPath string) error
+	PutDir(ctx context.Context, keyPrefix, srcDir string) ([]string, error)
 }
 
 // ProgressSink receives job state transitions and live progress (FT-4).
@@ -247,13 +250,26 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source %s not probed: %v", j.SourceObjectKey, err))
 		return
 	}
-	inputPath, err := s.objects.Path(j.SourceObjectKey)
-	if err != nil {
-		s.fail(parent, j, jobs.ErrorValidation, fmt.Sprintf("source key: %v", err))
+	if ok, err := s.objects.Exists(ctx, j.SourceObjectKey); err != nil || !ok {
+		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source object %s missing from store", j.SourceObjectKey))
 		return
 	}
-	if ok, err := s.objects.Exists(j.SourceObjectKey); err != nil || !ok {
-		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source object %s missing from store", j.SourceObjectKey))
+	// Download the source from S3 to a local scratch file: ffmpeg reads a
+	// local file path, never an S3 URL, and only the derived source key is
+	// ever fetched (S4). The scratch file is removed when the job returns.
+	inputDir, err := os.MkdirTemp(s.cfg.StagingDir, "src-"+j.ID+"-")
+	if err != nil {
+		s.fail(parent, j, jobs.ErrorInternal, fmt.Sprintf("scratch dir: %v", err))
+		return
+	}
+	defer os.RemoveAll(inputDir)
+	inputPath := filepath.Join(inputDir, "source")
+	if err := s.objects.Download(ctx, j.SourceObjectKey, inputPath); err != nil {
+		if ctx.Err() != nil {
+			s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+			return
+		}
+		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("download source %s: %v", j.SourceObjectKey, err))
 		return
 	}
 
@@ -339,7 +355,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		}
 
 		prefix := fmt.Sprintf("outputs/%s/%s/%s", j.WorkspaceID, j.ID, rung.Name)
-		keys, err := s.objects.PutDir(prefix, staging)
+		keys, err := s.objects.PutDir(parent, prefix, staging)
 		os.RemoveAll(staging)
 		if err != nil {
 			s.fail(parent, j, jobs.ErrorInternal, fmt.Sprintf("store outputs for rung %s: %v", rung.Name, err))

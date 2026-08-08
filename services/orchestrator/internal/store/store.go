@@ -150,6 +150,19 @@ func (p *Postgres) GetPreset(ctx context.Context, workspaceID, id string) (jobs.
 	return scanPreset(row)
 }
 
+// DefaultPreset returns the workspace's default preset: the oldest preset
+// (earliest created_at) the workspace defined. The first preset a workspace
+// creates is its stable baseline and does not shift when newer presets are
+// added, which is the property auto-created jobs need. ErrNotFound is returned
+// when the workspace has no preset (the caller must not fabricate one).
+func (p *Postgres) DefaultPreset(ctx context.Context, workspaceID string) (jobs.Preset, error) {
+	row := p.pool.QueryRow(ctx,
+		`SELECT `+presetCols+` FROM presets WHERE workspace_id = $1
+			ORDER BY created_at ASC, id ASC LIMIT 1`,
+		workspaceID)
+	return scanPreset(row)
+}
+
 // ListPresets lists presets for a workspace, newest first.
 func (p *Postgres) ListPresets(ctx context.Context, workspaceID string) ([]jobs.Preset, error) {
 	rows, err := p.pool.Query(ctx,
