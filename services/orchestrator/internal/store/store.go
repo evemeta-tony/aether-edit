@@ -150,6 +150,19 @@ func (p *Postgres) GetPreset(ctx context.Context, workspaceID, id string) (jobs.
 	return scanPreset(row)
 }
 
+// DefaultPreset returns the workspace's default preset: the oldest preset
+// (earliest created_at) the workspace defined. The first preset a workspace
+// creates is its stable baseline and does not shift when newer presets are
+// added, which is the property auto-created jobs need. ErrNotFound is returned
+// when the workspace has no preset (the caller must not fabricate one).
+func (p *Postgres) DefaultPreset(ctx context.Context, workspaceID string) (jobs.Preset, error) {
+	row := p.pool.QueryRow(ctx,
+		`SELECT `+presetCols+` FROM presets WHERE workspace_id = $1
+			ORDER BY created_at ASC, id ASC LIMIT 1`,
+		workspaceID)
+	return scanPreset(row)
+}
+
 // ListPresets lists presets for a workspace, newest first.
 func (p *Postgres) ListPresets(ctx context.Context, workspaceID string) ([]jobs.Preset, error) {
 	rows, err := p.pool.Query(ctx,
@@ -239,6 +252,31 @@ func (p *Postgres) CreateJob(ctx context.Context, j jobs.Job) (jobs.Job, error) 
 		RETURNING `+jobCols,
 		id.String(), j.WorkspaceID, j.UserID, j.PresetID, j.SourceObjectKey, j.SourceSHA256, outputs)
 	return scanJob(row)
+}
+
+// HasActiveJobForSource reports whether a non-failed job already exists for
+// the given workspace, source object key, and preset. The auto-create path
+// (landed-event consumer) uses this as an idempotency guard: JetStream can
+// redeliver a landed event after a crash that happened between CreateJob
+// committing and the message being acked, and CreateJob has no natural unique
+// key, so without this guard a redelivery would create a duplicate queued job.
+// Failed jobs are excluded so a re-landing (or explicit retry semantics) can
+// still produce a fresh job. The explicit API create path deliberately does
+// NOT call this, because a user may legitimately encode the same source with
+// the same preset more than once.
+func (p *Postgres) HasActiveJobForSource(ctx context.Context, workspaceID, sourceObjectKey, presetID string) (bool, error) {
+	var exists bool
+	err := p.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM jobs
+			WHERE workspace_id = $1 AND source_object_key = $2 AND preset_id = $3
+				AND state <> 'failed'
+		)`,
+		workspaceID, sourceObjectKey, presetID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // GetJob loads one job scoped to a workspace.

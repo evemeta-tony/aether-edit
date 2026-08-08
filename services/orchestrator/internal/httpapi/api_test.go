@@ -7,6 +7,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +26,10 @@ import (
 )
 
 const (
-	testSecret = "test-secret-0123456789abcdef"
+	// testSecret is the base64url (RawURLEncoding, no padding) encoding of a
+	// 32-byte HMAC key, matching the frozen auth contract. testKey is the
+	// decoded key tokens are signed with.
+	testSecret = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
 	testWS     = "ws1"
 	goodSHA    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	goodKey    = "assets/ws1/sha256/" + goodSHA
@@ -191,6 +195,17 @@ func (s *fakeSink) Publish(ev events.JobProgress) error {
 	return nil
 }
 
+// testKey decodes testSecret into the HMAC key used to sign test tokens,
+// exactly as the verifier decodes it.
+func testKey(t *testing.T) []byte {
+	t.Helper()
+	k, err := base64.RawURLEncoding.DecodeString(testSecret)
+	if err != nil {
+		t.Fatalf("decode test secret: %v", err)
+	}
+	return k
+}
+
 func token(t *testing.T, ws string) string {
 	t.Helper()
 	claims := jwt.MapClaims{
@@ -198,7 +213,7 @@ func token(t *testing.T, ws string) string {
 		"workspaceId": ws,
 		"exp":         time.Now().Add(time.Hour).Unix(),
 	}
-	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(testKey(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +297,7 @@ func TestAuthRequired(t *testing.T) {
 	}
 	// Tokens without exp are unbounded-lifetime and must be rejected.
 	noExp := jwt.MapClaims{"sub": "user-7", "workspaceId": testWS}
-	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, noExp).SignedString([]byte(testSecret))
+	s, err := jwt.NewWithClaims(jwt.SigningMethodHS256, noExp).SignedString(testKey(t))
 	if err != nil {
 		t.Fatal(err)
 	}

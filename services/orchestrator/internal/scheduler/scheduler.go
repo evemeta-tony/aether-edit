@@ -34,11 +34,14 @@ type Store interface {
 	MarkFailed(ctx context.Context, id string, class jobs.ErrorClass, msg string) (jobs.Job, error)
 }
 
-// ObjectStore is the object storage surface the scheduler needs.
+// ObjectStore is the object storage surface the scheduler needs. It is
+// backed by the OVH S3 store: the source object is Downloaded to a local
+// scratch file (ffmpeg reads local files, not S3 URLs) and encode outputs
+// are uploaded from a local staging directory with PutDir.
 type ObjectStore interface {
-	Path(key string) (string, error)
-	Exists(key string) (bool, error)
-	PutDir(keyPrefix, srcDir string) ([]string, error)
+	Exists(ctx context.Context, key string) (bool, error)
+	Download(ctx context.Context, key, dstPath string) error
+	PutDir(ctx context.Context, keyPrefix, srcDir string) ([]string, error)
 }
 
 // ProgressSink receives job state transitions and live progress (FT-4).
@@ -208,6 +211,20 @@ func (s *Scheduler) meterEmit(ctx context.Context, j jobs.Job, kind events.Meter
 	}
 }
 
+// cancelReason returns an accurate failure message for a job-scoped
+// cancellation. The job context is derived from the scheduler parent context
+// (WithCancel), so the job ctx.Err() being set means either a user-issued
+// Cancel on this job or a scheduler shutdown. Distinguishing the two keeps the
+// FAILED message honest: a shutdown is not "canceled by user". The error class
+// stays ErrorInternal in both cases because "canceled" is not a member of the
+// frozen error taxonomy.
+func cancelReason(parent context.Context) string {
+	if parent.Err() != nil {
+		return "canceled by shutdown"
+	}
+	return "canceled by user"
+}
+
 // fail finalizes a job as failed and emits the side-channel events.
 func (s *Scheduler) fail(ctx context.Context, j jobs.Job, class jobs.ErrorClass, msg string) {
 	if _, err := s.store.MarkFailed(ctx, j.ID, class, msg); err != nil {
@@ -247,13 +264,26 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source %s not probed: %v", j.SourceObjectKey, err))
 		return
 	}
-	inputPath, err := s.objects.Path(j.SourceObjectKey)
-	if err != nil {
-		s.fail(parent, j, jobs.ErrorValidation, fmt.Sprintf("source key: %v", err))
+	if ok, err := s.objects.Exists(ctx, j.SourceObjectKey); err != nil || !ok {
+		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source object %s missing from store", j.SourceObjectKey))
 		return
 	}
-	if ok, err := s.objects.Exists(j.SourceObjectKey); err != nil || !ok {
-		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("source object %s missing from store", j.SourceObjectKey))
+	// Download the source from S3 to a local scratch file: ffmpeg reads a
+	// local file path, never an S3 URL, and only the derived source key is
+	// ever fetched (S4). The scratch file is removed when the job returns.
+	inputDir, err := os.MkdirTemp(s.cfg.StagingDir, "src-"+j.ID+"-")
+	if err != nil {
+		s.fail(parent, j, jobs.ErrorInternal, fmt.Sprintf("scratch dir: %v", err))
+		return
+	}
+	defer os.RemoveAll(inputDir)
+	inputPath := filepath.Join(inputDir, "source")
+	if err := s.objects.Download(ctx, j.SourceObjectKey, inputPath); err != nil {
+		if ctx.Err() != nil {
+			s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
+			return
+		}
+		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("download source %s: %v", j.SourceObjectKey, err))
 		return
 	}
 
@@ -272,7 +302,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 	var lastPersist time.Time
 	for i, rung := range preset.Ladder {
 		if ctx.Err() != nil {
-			s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+			s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
 			return
 		}
 		staging, err := os.MkdirTemp(s.cfg.StagingDir, "job-"+j.ID+"-")
@@ -325,7 +355,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		if err != nil {
 			os.RemoveAll(staging)
 			if ctx.Err() != nil {
-				s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+				s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
 				return
 			}
 			class := jobs.ErrorInternal
@@ -339,9 +369,16 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		}
 
 		prefix := fmt.Sprintf("outputs/%s/%s/%s", j.WorkspaceID, j.ID, rung.Name)
-		keys, err := s.objects.PutDir(prefix, staging)
+		// Use the cancelable job ctx (not parent) so a user cancel or shutdown
+		// during the output upload aborts it, matching the Exists/Download calls
+		// above (Argus PR#10 pass 2 finding B).
+		keys, err := s.objects.PutDir(ctx, prefix, staging)
 		os.RemoveAll(staging)
 		if err != nil {
+			if ctx.Err() != nil {
+				s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
+				return
+			}
 			s.fail(parent, j, jobs.ErrorInternal, fmt.Sprintf("store outputs for rung %s: %v", rung.Name, err))
 			return
 		}
