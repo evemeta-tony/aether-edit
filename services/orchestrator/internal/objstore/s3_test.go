@@ -111,17 +111,21 @@ func TestExistsAndDownload(t *testing.T) {
 }
 
 func TestPutDir(t *testing.T) {
-	s, fake := newTestStore(t)
+	s, _ := newTestStore(t)
 	ctx := context.Background()
 
 	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "720p.mp4"), []byte("out"), 0o644); err != nil {
+	want := map[string][]byte{
+		"720p.mp4":            []byte("out"),
+		"seg/chunk_00001.m4s": []byte("seg"),
+	}
+	if err := os.WriteFile(filepath.Join(src, "720p.mp4"), want["720p.mp4"], 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(src, "seg"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(src, "seg", "chunk_00001.m4s"), []byte("seg"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "seg", "chunk_00001.m4s"), want["seg/chunk_00001.m4s"], 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -133,9 +137,27 @@ func TestPutDir(t *testing.T) {
 	if len(keys) != 2 {
 		t.Fatalf("stored %d keys, want 2: %v", len(keys), keys)
 	}
+	// Assert the uploaded bytes round-trip through a real GetObject (via
+	// Download), not merely that a key exists in the backend map. This makes
+	// the upload path's correctness rest on this test, not on the mirror claim
+	// alone (Argus PR#10 pass 2 finding C).
 	for _, k := range keys {
-		if _, ok := fake.objects[k]; !ok {
-			t.Errorf("key %s not present in backend after PutDir", k)
+		rel := strings.TrimPrefix(k, prefix+"/")
+		exp, known := want[rel]
+		if !known {
+			t.Errorf("unexpected stored key %s", k)
+			continue
+		}
+		dst := filepath.Join(t.TempDir(), "dl")
+		if err := s.Download(ctx, k, dst); err != nil {
+			t.Fatalf("Download uploaded key %s: %v", k, err)
+		}
+		got, err := os.ReadFile(dst)
+		if err != nil {
+			t.Fatalf("read downloaded %s: %v", k, err)
+		}
+		if string(got) != string(exp) {
+			t.Errorf("key %s bytes = %q, want %q", k, got, exp)
 		}
 	}
 }

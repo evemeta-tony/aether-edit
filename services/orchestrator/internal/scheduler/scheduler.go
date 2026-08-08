@@ -369,9 +369,16 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		}
 
 		prefix := fmt.Sprintf("outputs/%s/%s/%s", j.WorkspaceID, j.ID, rung.Name)
-		keys, err := s.objects.PutDir(parent, prefix, staging)
+		// Use the cancelable job ctx (not parent) so a user cancel or shutdown
+		// during the output upload aborts it, matching the Exists/Download calls
+		// above (Argus PR#10 pass 2 finding B).
+		keys, err := s.objects.PutDir(ctx, prefix, staging)
 		os.RemoveAll(staging)
 		if err != nil {
+			if ctx.Err() != nil {
+				s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
+				return
+			}
 			s.fail(parent, j, jobs.ErrorInternal, fmt.Sprintf("store outputs for rung %s: %v", rung.Name, err))
 			return
 		}
