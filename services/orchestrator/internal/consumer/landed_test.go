@@ -28,6 +28,8 @@ type fakeSourceStore struct {
 	defaultErr    error
 	upserted      []store.Source
 	nextJobID     int
+	hasActive     bool
+	hasActiveErr  error
 }
 
 func (f *fakeSourceStore) UpsertSource(_ context.Context, s store.Source) error {
@@ -47,6 +49,15 @@ func (f *fakeSourceStore) DefaultPreset(_ context.Context, _ string) (jobs.Prese
 		return jobs.Preset{}, store.ErrNotFound
 	}
 	return f.defaultPreset, nil
+}
+
+func (f *fakeSourceStore) HasActiveJobForSource(_ context.Context, _, _, _ string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.hasActiveErr != nil {
+		return false, f.hasActiveErr
+	}
+	return f.hasActive, nil
 }
 
 func (f *fakeSourceStore) CreateJob(_ context.Context, j jobs.Job) (jobs.Job, error) {
@@ -169,5 +180,42 @@ func TestAutoCreateJobTransientCreateErrorRetries(t *testing.T) {
 	// A create failure is transient: return false so the message is NAKed.
 	if ok := l.autoCreateJob(context.Background(), landedEvent(), engine.MediaInfo{}); ok {
 		t.Fatal("autoCreateJob must return false (retry) on a create error")
+	}
+}
+
+func TestAutoCreateJobIdempotentOnRedelivery(t *testing.T) {
+	// A non-failed job already exists for this source+preset (the situation a
+	// crash-then-JetStream-redelivery produces): the consumer must NOT create a
+	// second job, must NOT re-meter job_queued, and must ack (return true).
+	st := &fakeSourceStore{defaultPreset: testDefaultPreset(), hasActive: true}
+	meter := &fakeMeter{}
+	runner := &fakeRunner{}
+	l := New(Config{AutoCreateJobs: true}, st, nil, nil, meter, nil, runner, nil)
+
+	if ok := l.autoCreateJob(context.Background(), landedEvent(), engine.MediaInfo{}); !ok {
+		t.Fatal("autoCreateJob must ack (return true) when a job already exists")
+	}
+	if len(st.created) != 0 {
+		t.Fatalf("created %d jobs on redelivery, want 0", len(st.created))
+	}
+	if len(meter.kinds) != 0 {
+		t.Fatalf("metered %v on redelivery, want none", meter.kinds)
+	}
+	if runner.woken != 0 {
+		t.Fatalf("runner woken %d times on redelivery, want 0", runner.woken)
+	}
+}
+
+func TestAutoCreateJobActiveLookupErrorRetries(t *testing.T) {
+	st := &fakeSourceStore{defaultPreset: testDefaultPreset(), hasActiveErr: errors.New("db down")}
+	l := New(Config{AutoCreateJobs: true}, st, nil, nil, &fakeMeter{}, nil, nil, nil)
+
+	// The idempotency lookup failing is transient: return false so the message
+	// is NAKed and no job is created.
+	if ok := l.autoCreateJob(context.Background(), landedEvent(), engine.MediaInfo{}); ok {
+		t.Fatal("autoCreateJob must return false (retry) on an active-job lookup error")
+	}
+	if len(st.created) != 0 {
+		t.Fatalf("created %d jobs after lookup error, want 0", len(st.created))
 	}
 }

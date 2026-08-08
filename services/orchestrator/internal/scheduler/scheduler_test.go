@@ -296,6 +296,21 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 
 // ---- tests ----
 
+func TestCancelReasonDistinguishesShutdownFromUser(t *testing.T) {
+	// A live parent context (job canceled while the scheduler keeps running)
+	// is a user-issued cancel.
+	if got := cancelReason(context.Background()); got != "canceled by user" {
+		t.Fatalf("live parent: cancelReason = %q, want %q", got, "canceled by user")
+	}
+	// A canceled parent context (scheduler shutting down) is NOT a user cancel;
+	// labeling it as such is the state-machine honesty defect from Argus PR#10.
+	parent, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := cancelReason(parent); got != "canceled by shutdown" {
+		t.Fatalf("canceled parent: cancelReason = %q, want %q", got, "canceled by shutdown")
+	}
+}
+
 func TestSlotAccountingUnderConcurrentCompletion(t *testing.T) {
 	st, eng, _, _, _, _ := setup(t, 3)
 	for i := 0; i < 6; i++ {

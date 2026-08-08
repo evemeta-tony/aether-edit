@@ -34,6 +34,9 @@ import (
 type SourceStore interface {
 	UpsertSource(ctx context.Context, s store.Source) error
 	DefaultPreset(ctx context.Context, workspaceID string) (jobs.Preset, error)
+	// HasActiveJobForSource is the auto-create idempotency guard against
+	// duplicate jobs on JetStream redelivery (see store implementation).
+	HasActiveJobForSource(ctx context.Context, workspaceID, sourceObjectKey, presetID string) (bool, error)
 	CreateJob(ctx context.Context, j jobs.Job) (jobs.Job, error)
 }
 
@@ -223,6 +226,25 @@ func (l *Landed) autoCreateJob(ctx context.Context, ev events.UploadLanded, _ en
 			"workspace", ev.WorkspaceID, "err", err)
 		return false
 	}
+
+	// Idempotency guard: JetStream may redeliver this landed event after a
+	// crash that occurred between CreateJob committing and the message being
+	// acked. CreateJob has no natural unique key, so re-creating unconditionally
+	// would enqueue (and bill) a duplicate job. If a non-failed job already
+	// exists for this source+preset, treat the message as already handled and
+	// ack. A lookup error is transient, so retry.
+	active, err := l.sources.HasActiveJobForSource(ctx, ev.WorkspaceID, ev.ObjectKey, preset.ID)
+	if err != nil {
+		l.log.Warn("auto-create: active-job lookup failed, will retry",
+			"workspace", ev.WorkspaceID, "key", ev.ObjectKey, "err", err)
+		return false
+	}
+	if active {
+		l.log.Info("auto-create skipped: job already exists for source+preset",
+			"workspace", ev.WorkspaceID, "preset", preset.ID, "key", ev.ObjectKey)
+		return true
+	}
+
 	j, err := l.sources.CreateJob(ctx, jobs.Job{
 		WorkspaceID:     ev.WorkspaceID,
 		UserID:          ev.UserID,

@@ -254,6 +254,31 @@ func (p *Postgres) CreateJob(ctx context.Context, j jobs.Job) (jobs.Job, error) 
 	return scanJob(row)
 }
 
+// HasActiveJobForSource reports whether a non-failed job already exists for
+// the given workspace, source object key, and preset. The auto-create path
+// (landed-event consumer) uses this as an idempotency guard: JetStream can
+// redeliver a landed event after a crash that happened between CreateJob
+// committing and the message being acked, and CreateJob has no natural unique
+// key, so without this guard a redelivery would create a duplicate queued job.
+// Failed jobs are excluded so a re-landing (or explicit retry semantics) can
+// still produce a fresh job. The explicit API create path deliberately does
+// NOT call this, because a user may legitimately encode the same source with
+// the same preset more than once.
+func (p *Postgres) HasActiveJobForSource(ctx context.Context, workspaceID, sourceObjectKey, presetID string) (bool, error) {
+	var exists bool
+	err := p.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM jobs
+			WHERE workspace_id = $1 AND source_object_key = $2 AND preset_id = $3
+				AND state <> 'failed'
+		)`,
+		workspaceID, sourceObjectKey, presetID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 // GetJob loads one job scoped to a workspace.
 func (p *Postgres) GetJob(ctx context.Context, workspaceID, id string) (jobs.Job, error) {
 	row := p.pool.QueryRow(ctx,

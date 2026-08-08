@@ -211,6 +211,20 @@ func (s *Scheduler) meterEmit(ctx context.Context, j jobs.Job, kind events.Meter
 	}
 }
 
+// cancelReason returns an accurate failure message for a job-scoped
+// cancellation. The job context is derived from the scheduler parent context
+// (WithCancel), so the job ctx.Err() being set means either a user-issued
+// Cancel on this job or a scheduler shutdown. Distinguishing the two keeps the
+// FAILED message honest: a shutdown is not "canceled by user". The error class
+// stays ErrorInternal in both cases because "canceled" is not a member of the
+// frozen error taxonomy.
+func cancelReason(parent context.Context) string {
+	if parent.Err() != nil {
+		return "canceled by shutdown"
+	}
+	return "canceled by user"
+}
+
 // fail finalizes a job as failed and emits the side-channel events.
 func (s *Scheduler) fail(ctx context.Context, j jobs.Job, class jobs.ErrorClass, msg string) {
 	if _, err := s.store.MarkFailed(ctx, j.ID, class, msg); err != nil {
@@ -266,7 +280,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 	inputPath := filepath.Join(inputDir, "source")
 	if err := s.objects.Download(ctx, j.SourceObjectKey, inputPath); err != nil {
 		if ctx.Err() != nil {
-			s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+			s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
 			return
 		}
 		s.fail(parent, j, jobs.ErrorAsset, fmt.Sprintf("download source %s: %v", j.SourceObjectKey, err))
@@ -288,7 +302,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 	var lastPersist time.Time
 	for i, rung := range preset.Ladder {
 		if ctx.Err() != nil {
-			s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+			s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
 			return
 		}
 		staging, err := os.MkdirTemp(s.cfg.StagingDir, "job-"+j.ID+"-")
@@ -341,7 +355,7 @@ func (s *Scheduler) runJob(parent context.Context, j jobs.Job) {
 		if err != nil {
 			os.RemoveAll(staging)
 			if ctx.Err() != nil {
-				s.fail(parent, j, jobs.ErrorInternal, "canceled by user")
+				s.fail(parent, j, jobs.ErrorInternal, cancelReason(parent))
 				return
 			}
 			class := jobs.ErrorInternal
