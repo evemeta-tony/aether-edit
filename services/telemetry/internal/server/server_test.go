@@ -13,13 +13,41 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/hub"
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/logstream"
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/pipeline"
 	"github.com/evemeta-tony/aether-edit/services/telemetry/internal/sampler"
 )
 
-const testToken = "test-token-0123456789abcdef"
+// testKey is the raw (already base64url-decoded) HS256 signing key used by the
+// tests: 32 bytes, matching the >=32 byte contract shared with the other
+// services. The tenancy signer is the real minter in production; these tests
+// stand in as the signer by minting HS256 JWTs with this same key.
+var testKey = []byte("telemetry-test-hs256-key-0123456") // 32 bytes
+
+// mintToken signs a valid HS256 JWT carrying sub and workspaceId claims.
+func mintToken(t *testing.T) string {
+	t.Helper()
+	return mintTokenWith(t, jwt.MapClaims{
+		"sub":         "user-123",
+		"workspaceId": "ws-456",
+		"iat":         time.Now().Unix(),
+		"exp":         time.Now().Add(time.Hour).Unix(),
+	})
+}
+
+// mintTokenWith signs an HS256 JWT with the given claims and testKey.
+func mintTokenWith(t *testing.T, claims jwt.MapClaims) string {
+	t.Helper()
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, err := tok.SignedString(testKey)
+	if err != nil {
+		t.Fatalf("mint token: %v", err)
+	}
+	return s
+}
 
 // fakeSampler is a test double for the Sampler interface (the NVML
 // implementation ships in internal/sampler; this double exists only in
@@ -82,13 +110,17 @@ func newTestServer(t *testing.T, smp sampler.Sampler) *httptest.Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go pipeline.RunHardware(ctx, smp, hw, 20*time.Millisecond, slog.New(slog.DiscardHandler))
-	ts := httptest.NewServer(New(Options{
-		AuthToken: testToken,
-		Hardware:  hw,
-		Jobs:      jobsHub,
-		Logs:      logsHub,
-		Heartbeat: time.Second,
-	}))
+	handler, err := New(Options{
+		AuthHS256Key: testKey,
+		Hardware:     hw,
+		Jobs:         jobsHub,
+		Logs:         logsHub,
+		Heartbeat:    time.Second,
+	})
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	ts := httptest.NewServer(handler)
 	t.Cleanup(ts.Close)
 	return ts
 }
@@ -109,7 +141,7 @@ func TestSamplerToStreamPipeline(t *testing.T) {
 	}}
 	ts := newTestServer(t, smp)
 
-	evs := readSSE(t, ts.URL+"/v1/streams/hardware", testToken, 300*time.Millisecond)
+	evs := readSSE(t, ts.URL+"/v1/streams/hardware", mintToken(t), 300*time.Millisecond)
 	var status, sample map[string]any
 	for _, ev := range evs {
 		switch ev.name {
@@ -156,7 +188,7 @@ func TestHonestAbsenceWithoutGPU(t *testing.T) {
 	}}
 	ts := newTestServer(t, smp)
 
-	evs := readSSE(t, ts.URL+"/v1/streams/hardware", testToken, 300*time.Millisecond)
+	evs := readSSE(t, ts.URL+"/v1/streams/hardware", mintToken(t), 300*time.Millisecond)
 	var status, sample map[string]any
 	for _, ev := range evs {
 		switch ev.name {
@@ -192,6 +224,39 @@ func TestHonestAbsenceWithoutGPU(t *testing.T) {
 
 func TestAuthRequired(t *testing.T) {
 	ts := newTestServer(t, &fakeSampler{})
+
+	// Token signed with a different key: valid JWT shape, bad signature.
+	wrongKeyTok := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "user-123", "workspaceId": "ws-456",
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+	wrongKeySigned, err := wrongKeyTok.SignedString([]byte("a-different-hs256-key-0123456789"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Expired token, correctly signed: must still be rejected.
+	expired := mintTokenWith(t, jwt.MapClaims{
+		"sub": "user-123", "workspaceId": "ws-456",
+		"exp": time.Now().Add(-time.Hour).Unix(),
+	})
+	// Correctly signed but missing the required workspaceId claim.
+	missingClaim := mintTokenWith(t, jwt.MapClaims{
+		"sub": "user-123",
+		"exp": time.Now().Add(time.Hour).Unix(),
+	})
+	// Correctly signed but no exp: expiration is required.
+	noExp := mintTokenWith(t, jwt.MapClaims{
+		"sub": "user-123", "workspaceId": "ws-456",
+	})
+
+	badTokens := map[string]string{
+		"garbage":           "wrong-token-0123456789",
+		"wrong signing key": wrongKeySigned,
+		"expired":           expired,
+		"missing claim":     missingClaim,
+		"no exp":            noExp,
+	}
+
 	for _, path := range []string{"/v1/streams/hardware", "/v1/streams/jobs", "/v1/streams/logs"} {
 		resp, err := http.Get(ts.URL + path)
 		if err != nil {
@@ -201,15 +266,17 @@ func TestAuthRequired(t *testing.T) {
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("%s without token: status %d, want 401", path, resp.StatusCode)
 		}
-		req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
-		req.Header.Set("Authorization", "Bearer wrong-token-0123456789")
-		resp2, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp2.Body.Close()
-		if resp2.StatusCode != http.StatusUnauthorized {
-			t.Fatalf("%s with wrong token: status %d, want 401", path, resp2.StatusCode)
+		for name, tok := range badTokens {
+			req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+			req.Header.Set("Authorization", "Bearer "+tok)
+			resp2, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp2.Body.Close()
+			if resp2.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("%s with %s token: status %d, want 401", path, name, resp2.StatusCode)
+			}
 		}
 	}
 }
@@ -217,7 +284,7 @@ func TestAuthRequired(t *testing.T) {
 func TestLogsTagFilterValidation(t *testing.T) {
 	ts := newTestServer(t, &fakeSampler{})
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/v1/streams/logs?tag=NOT%20VALID", nil)
-	req.Header.Set("Authorization", "Bearer "+testToken)
+	req.Header.Set("Authorization", "Bearer "+mintToken(t))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -233,13 +300,17 @@ func TestLogStreamTaggedDelivery(t *testing.T) {
 	jobsHub := hub.New(64)
 	logsHub := hub.New(64)
 	cons := logstream.New(logsHub)
-	ts := httptest.NewServer(New(Options{
-		AuthToken: testToken,
-		Hardware:  hw,
-		Jobs:      jobsHub,
-		Logs:      logsHub,
-		Heartbeat: time.Second,
-	}))
+	handler, err := New(Options{
+		AuthHS256Key: testKey,
+		Hardware:     hw,
+		Jobs:         jobsHub,
+		Logs:         logsHub,
+		Heartbeat:    time.Second,
+	})
+	if err != nil {
+		t.Fatalf("server.New: %v", err)
+	}
+	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
 	go func() {
@@ -255,7 +326,7 @@ func TestLogStreamTaggedDelivery(t *testing.T) {
 		}
 	}()
 
-	evs := readSSE(t, ts.URL+"/v1/streams/logs?tag=transfer", testToken, 400*time.Millisecond)
+	evs := readSSE(t, ts.URL+"/v1/streams/logs?tag=transfer", mintToken(t), 400*time.Millisecond)
 	var logEvs []map[string]any
 	for _, ev := range evs {
 		if ev.name == "log" {

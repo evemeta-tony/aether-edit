@@ -1,7 +1,7 @@
 // services/telemetry/internal/server/server.go
 
 // Package server wires the SSE endpoints of contract 4 behind the shared
-// bearer-auth middleware.
+// HS256 JWT bearer-auth middleware.
 package server
 
 import (
@@ -16,17 +16,25 @@ import (
 
 // Options carries the dependencies of the HTTP surface.
 type Options struct {
-	AuthToken string
-	Hardware  *hub.Hub
-	Jobs      *hub.Hub
-	Logs      *hub.Hub
-	Heartbeat time.Duration
+	// AuthHS256Key is the base64url-decoded HMAC key used to verify the
+	// HS256 JWT bearer tokens on the stream endpoints.
+	AuthHS256Key []byte
+	Hardware     *hub.Hub
+	Jobs         *hub.Hub
+	Logs         *hub.Hub
+	Heartbeat    time.Duration
 	// Health reports liveness details for GET /healthz.
 	Health func() map[string]string
 }
 
-// New builds the telemetry HTTP handler.
-func New(o Options) http.Handler {
+// New builds the telemetry HTTP handler. It returns an error if the auth key
+// is not a valid HS256 signing key.
+func New(o Options) (http.Handler, error) {
+	verifier, err := auth.NewVerifier(o.AuthHS256Key)
+	if err != nil {
+		return nil, err
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -39,11 +47,11 @@ func New(o Options) http.Handler {
 		json.NewEncoder(w).Encode(body)
 	})
 
-	protect := auth.Middleware(o.AuthToken)
+	protect := verifier.Middleware
 	mux.Handle("GET /v1/streams/hardware", protect(streamHandler(o.Hardware, o.Heartbeat, nil)))
 	mux.Handle("GET /v1/streams/jobs", protect(streamHandler(o.Jobs, o.Heartbeat, nil)))
 	mux.Handle("GET /v1/streams/logs", protect(logsHandler(o.Logs, o.Heartbeat)))
-	return mux
+	return mux, nil
 }
 
 func streamHandler(h *hub.Hub, heartbeat time.Duration, filter func(hub.Event) bool) http.Handler {

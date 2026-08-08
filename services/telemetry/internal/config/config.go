@@ -6,6 +6,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/url"
@@ -18,8 +19,11 @@ import (
 type Config struct {
 	// ListenAddr is the host:port the HTTP server binds.
 	ListenAddr string
-	// AuthToken is the static bearer token (min 16 chars, from env only).
-	AuthToken string
+	// AuthHS256Key is the base64url-decoded HMAC key used to verify the
+	// HS256 JWT bearer tokens minted by the tenancy signer. It is decoded
+	// from TELEMETRY_AUTH_HS256_KEY (base64url, no padding) and must be at
+	// least 32 bytes, matching upload/config.go and tenancy/config.go.
+	AuthHS256Key []byte
 	// NATSURL is the NATS server URL (nats:// or tls://).
 	NATSURL string
 	// StreamBufferSize is the per-connection SSE buffer (16..4096 events).
@@ -34,7 +38,6 @@ type Config struct {
 func Load() (Config, error) {
 	c := Config{
 		ListenAddr:        getenv("TELEMETRY_LISTEN_ADDR", "127.0.0.1:8094"),
-		AuthToken:         os.Getenv("TELEMETRY_AUTH_TOKEN"),
 		NATSURL:           getenv("TELEMETRY_NATS_URL", "nats://127.0.0.1:4222"),
 		StreamBufferSize:  256,
 		HeartbeatInterval: 15 * time.Second,
@@ -47,9 +50,18 @@ func Load() (Config, error) {
 	if _, err := strconv.ParseUint(port, 10, 16); err != nil {
 		return Config{}, fmt.Errorf("TELEMETRY_LISTEN_ADDR port %q is not a valid port number", port)
 	}
-	if len(c.AuthToken) < 16 {
-		return Config{}, fmt.Errorf("TELEMETRY_AUTH_TOKEN must be set and at least 16 characters")
+	keyB64 := os.Getenv("TELEMETRY_AUTH_HS256_KEY")
+	if keyB64 == "" {
+		return Config{}, fmt.Errorf("TELEMETRY_AUTH_HS256_KEY is required")
 	}
+	key, err := base64.RawURLEncoding.DecodeString(keyB64)
+	if err != nil {
+		return Config{}, fmt.Errorf("TELEMETRY_AUTH_HS256_KEY must be base64url without padding: %w", err)
+	}
+	if len(key) < 32 {
+		return Config{}, fmt.Errorf("TELEMETRY_AUTH_HS256_KEY must decode to at least 32 bytes")
+	}
+	c.AuthHS256Key = key
 	u, err := url.Parse(c.NATSURL)
 	if err != nil || (u.Scheme != "nats" && u.Scheme != "tls") || u.Host == "" {
 		return Config{}, fmt.Errorf("TELEMETRY_NATS_URL %q must be a nats:// or tls:// URL", c.NATSURL)
