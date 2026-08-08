@@ -1,0 +1,19 @@
+# /etc/systemd/system/aether-orchestrator.service
+[Unit]
+Description=aether-edit FT-3 transcode job service + worker
+After=network.target postgresql.service aether-nats.service
+Wants=aether-nats.service
+[Service]
+Type=simple
+User=aether-edit
+Group=aether-edit
+EnvironmentFile=/etc/aether-edit/orchestrator.env
+ExecStart=/opt/aether-edit/bin/orchestrator
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aether-edit
+[Install]
+WantedBy=multi-user.target

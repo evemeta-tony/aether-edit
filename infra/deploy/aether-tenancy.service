@@ -1,0 +1,23 @@
+# /etc/systemd/system/aether-tenancy.service
+# aether-edit FT-6a: tenancy, auth, quota, metering, API keys.
+[Unit]
+Description=aether-edit tenancy/auth service (FT-6a)
+After=network.target postgresql.service aether-nats.service
+Wants=aether-nats.service
+
+[Service]
+Type=simple
+User=aether-edit
+Group=aether-edit
+EnvironmentFile=/etc/aether-edit/tenancy.env
+EnvironmentFile=-/etc/aether-edit/oidc.env
+ExecStart=/opt/aether-edit/bin/tenancy
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aether-edit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# /etc/aether-edit/tiers.yaml
+# aether-edit plan tiers (FT-6a). Demo posture: one generous default tier.
+# Real commercial tiers arrive with FT-6b billing.
+defaultTier: demo
+tiers:
+  demo:
+    encodeHoursPerMonth: 100
+    storageBytes: 214748364800   # 200 GiB
+    maxUploadBytes: 21474836480  # 20 GiB per object
+    allowUploads: true
+    allowJobs: true
