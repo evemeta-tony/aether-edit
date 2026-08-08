@@ -7,6 +7,7 @@ go 1.25.0
 require (
 	github.com/NVIDIA/go-nvml v0.13.3-1
 	github.com/evemeta-tony/aether-edit/services/contracts v0.0.0
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/nats-io/nats.go v1.52.0
 )
 

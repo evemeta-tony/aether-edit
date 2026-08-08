@@ -12,7 +12,7 @@ aggregator, and a structured log stream.
 | Variable | Default | Meaning |
 |---|---|---|
 | `TELEMETRY_LISTEN_ADDR` | `127.0.0.1:8094` | HTTP bind address (`host:port`) |
-| `TELEMETRY_AUTH_TOKEN` | required | static bearer token, minimum 16 characters |
+| `TELEMETRY_AUTH_HS256_KEY` | required | base64url (no padding) HS256 signing key; decodes to at least 32 bytes |
 | `TELEMETRY_NATS_URL` | `nats://127.0.0.1:4222` | NATS server (`nats://` or `tls://`) |
 | `TELEMETRY_STREAM_BUFFER` | `256` | per-connection SSE buffer, 16 to 4096 events |
 
@@ -21,11 +21,14 @@ coerced. The service exits with an error rather than guessing.
 
 ## Authentication
 
-Every `/v1/streams/*` endpoint requires `Authorization: Bearer <token>`,
-matching the bearer-auth middleware contract shared with the FT-2 and FT-3
-services. Comparison is constant time; failures return
-`401 {"error":"unauthorized"}`. `GET /healthz` is unauthenticated and returns
-liveness plus `gpu` and `nats` status strings.
+Every `/v1/streams/*` endpoint requires `Authorization: Bearer <JWT>`, where
+the JWT is an HS256 token minted by the tenancy signer (FT-6a) and signed with
+the same key configured here. The token is verified for the HS256 algorithm
+only, a valid signature, a present and unexpired `exp`, an enforced `nbf` when
+present, and both required claims: `sub` (the user id) and `workspaceId`. Any
+missing, malformed, wrongly signed, expired, not-yet-valid, or claim-incomplete
+token returns `401 {"error":"unauthorized"}`. `GET /healthz` is unauthenticated
+and returns liveness plus `gpu` and `nats` status strings.
 
 ## SSE conventions (all three streams)
 

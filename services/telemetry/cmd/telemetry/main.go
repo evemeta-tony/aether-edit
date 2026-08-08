@@ -119,12 +119,13 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	handler := server.New(server.Options{
-		AuthToken: cfg.AuthToken,
-		Hardware:  hardwareHub,
-		Jobs:      jobsHub,
-		Logs:      logsHub,
-		Heartbeat: cfg.HeartbeatInterval,
+	handler, err := server.New(server.Options{
+		AuthHS256Key: cfg.AuthHS256Key,
+		Hardware:     hardwareHub,
+		Jobs:         jobsHub,
+		Logs:         logsHub,
+		Heartbeat:    cfg.HeartbeatInterval,
+		Logger:       log,
 		Health: func() map[string]string {
 			gpuState := sampler.GPUStateOK
 			if gpu == nil {
@@ -137,6 +138,9 @@ func run(log *slog.Logger) error {
 			return map[string]string{"gpu": gpuState, "nats": natsState}
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
