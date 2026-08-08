@@ -14,6 +14,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -37,6 +38,7 @@ func FromContext(ctx context.Context) (Identity, bool) {
 // Verifier validates HS256 bearer tokens against a shared signing key.
 type Verifier struct {
 	key []byte
+	log *slog.Logger
 }
 
 // NewVerifier builds a Verifier. The key is the raw (already base64url-decoded)
@@ -45,7 +47,18 @@ func NewVerifier(key []byte) (*Verifier, error) {
 	if len(key) < 32 {
 		return nil, fmt.Errorf("auth: HS256 key must be at least 32 bytes")
 	}
-	return &Verifier{key: key}, nil
+	return &Verifier{key: key, log: slog.Default()}, nil
+}
+
+// WithLogger returns the Verifier with its debug logger set. Auth failures are
+// logged at debug level (reason only, never the token) so an operator can tell
+// an attack from clock skew or a key-rotation break; the client still receives
+// only a flat 401 with no failure detail.
+func (v *Verifier) WithLogger(log *slog.Logger) *Verifier {
+	if log != nil {
+		v.log = log
+	}
+	return v
 }
 
 // claims is the expected token claim set.
@@ -90,11 +103,13 @@ func (v *Verifier) Middleware(next http.Handler) http.Handler {
 		h := r.Header.Get("Authorization")
 		const prefix = "Bearer "
 		if !strings.HasPrefix(h, prefix) {
+			v.log.Debug("auth: missing bearer token", "path", r.URL.Path, "remote", r.RemoteAddr)
 			unauthorized(w)
 			return
 		}
 		id, err := v.Verify(strings.TrimPrefix(h, prefix))
 		if err != nil {
+			v.log.Debug("auth: token rejected", "path", r.URL.Path, "remote", r.RemoteAddr, "reason", err)
 			unauthorized(w)
 			return
 		}

@@ -125,6 +125,7 @@ func run(log *slog.Logger) error {
 		Jobs:         jobsHub,
 		Logs:         logsHub,
 		Heartbeat:    cfg.HeartbeatInterval,
+		Logger:       log,
 		Health: func() map[string]string {
 			gpuState := sampler.GPUStateOK
 			if gpu == nil {

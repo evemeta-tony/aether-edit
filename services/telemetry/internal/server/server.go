@@ -6,6 +6,7 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -25,6 +26,9 @@ type Options struct {
 	Heartbeat    time.Duration
 	// Health reports liveness details for GET /healthz.
 	Health func() map[string]string
+	// Logger receives debug-level auth-failure diagnostics. Optional; when
+	// nil the auth middleware falls back to slog.Default().
+	Logger *slog.Logger
 }
 
 // New builds the telemetry HTTP handler. It returns an error if the auth key
@@ -33,6 +37,9 @@ func New(o Options) (http.Handler, error) {
 	verifier, err := auth.NewVerifier(o.AuthHS256Key)
 	if err != nil {
 		return nil, err
+	}
+	if o.Logger != nil {
+		verifier = verifier.WithLogger(o.Logger)
 	}
 
 	mux := http.NewServeMux()
